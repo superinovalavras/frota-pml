@@ -399,8 +399,12 @@ export function AgendamentoForm({
                 <Input
                   id="af-inicio"
                   type="datetime-local"
+                  step={300}
                   value={inicio}
-                  onChange={(e) => setInicio(e.target.value)}
+                  onChange={(e) => {
+                    setInicio(e.target.value);
+                    setErro(null);
+                  }}
                 />
               </div>
               <div className="space-y-2">
@@ -408,8 +412,12 @@ export function AgendamentoForm({
                 <Input
                   id="af-fim"
                   type="datetime-local"
+                  step={300}
                   value={fim}
-                  onChange={(e) => setFim(e.target.value)}
+                  onChange={(e) => {
+                    setFim(e.target.value);
+                    setErro(null);
+                  }}
                 />
               </div>
             </>
