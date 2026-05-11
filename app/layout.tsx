@@ -5,6 +5,7 @@ import { FuncoesProvider } from "@/lib/store/funcoes-context";
 import { OrgaosProvider } from "@/lib/store/orgaos-context";
 import { UsuariosProvider } from "@/lib/store/usuarios-context";
 import { PerfilProvider } from "@/lib/perfil-context";
+import { BrandingProvider } from "@/lib/store/branding-context";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -34,13 +35,15 @@ export default function RootLayout({
       className={`${outfit.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-background text-foreground">
-        <FuncoesProvider>
-          <OrgaosProvider>
-            <UsuariosProvider>
-              <PerfilProvider>{children}</PerfilProvider>
-            </UsuariosProvider>
-          </OrgaosProvider>
-        </FuncoesProvider>
+        <BrandingProvider>
+          <FuncoesProvider>
+            <OrgaosProvider>
+              <UsuariosProvider>
+                <PerfilProvider>{children}</PerfilProvider>
+              </UsuariosProvider>
+            </OrgaosProvider>
+          </FuncoesProvider>
+        </BrandingProvider>
       </body>
     </html>
   );

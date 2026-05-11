@@ -1,10 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
+import { useBranding } from "@/lib/store/branding-context";
 
 export default function LoginPage() {
+  const { logoUrl } = useBranding();
   return (
     <div className="relative min-h-screen overflow-hidden flex items-center justify-center p-4">
       {/* Atmosfera de fundo institucional */}
@@ -25,14 +29,23 @@ export default function LoginPage() {
 
           {/* Bloco superior azul com logo institucional vertical completa */}
           <div className="bg-pml-blue text-white px-6 pt-8 pb-6 text-center relative">
-            <Image
-              src="/marca/pml-branca.png"
-              alt="Governo de Lavras — Trabalho e amor por Lavras"
-              width={280}
-              height={340}
-              className="mx-auto h-40 w-auto"
-              priority
-            />
+            {logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={logoUrl}
+                alt="Logo"
+                className="mx-auto h-40 w-auto object-contain rounded-md bg-white/95 p-2"
+              />
+            ) : (
+              <Image
+                src="/marca/pml-branca.png"
+                alt="Governo de Lavras — Trabalho e amor por Lavras"
+                width={280}
+                height={340}
+                className="mx-auto h-40 w-auto"
+                priority
+              />
+            )}
           </div>
 
           <CardContent className="px-6 pt-6 pb-3 text-center">

@@ -332,10 +332,11 @@ children.push(
 
 children.push(
   h2("3.9 Administração (somente Master)"),
-  p("Tela \"Administração\", com três abas:"),
+  p("Tela \"Administração\", com quatro abas:"),
   bullet([b("Hierarquia: "), t("lista de funções ordenada por prioridade (1 = topo). Use as setas para reordenar; o botão de \"+\" cria novas funções. Cada função define um nível de acesso (master / gestor / servidor) e pode ser marcada como \"função de motorista\". As funções Master e Motorista são de sistema e não podem ser excluídas.")]),
   bullet([b("Usuários: "), t("cadastro completo dos colaboradores — nome, CPF, MASP, e-mail, telefone, cargo, função, órgão, superintendência e dados de CNH (opcionais). Há busca por nome/CPF/MASP. O usuário Master não pode ser excluído.")]),
   bullet([b("Órgãos: "), t("secretarias e demais lotações da prefeitura. Um órgão só pode ser excluído se não houver usuários, veículos ou superintendências vinculados a ele.")]),
+  bullet([b("Marca: "), t("permite trocar a logo exibida no sistema (cabeçalho do menu lateral e tela de login). Envie um arquivo de imagem (de preferência PNG quadrado com fundo transparente) ou restaure a logo padrão. Disponível apenas para o Master.")]),
 );
 
 children.push(

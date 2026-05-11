@@ -13,6 +13,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { usePerfil } from "@/lib/perfil-context";
+import { useBranding } from "@/lib/store/branding-context";
 import { navItemsParaPerfil } from "@/lib/navigation";
 import {
   Sheet,
@@ -89,6 +90,7 @@ function ConteudoSidebar({
   items: ReturnType<typeof navItemsParaPerfil>;
 }) {
   const pathname = usePathname();
+  const { logoUrl } = useBranding();
   return (
     <>
       <div className="px-5 pt-5 pb-3">
@@ -97,15 +99,31 @@ function ConteudoSidebar({
           className="flex items-center gap-3 group"
           aria-label="Ir para a Agenda"
         >
-          <div className="size-12 rounded-2xl bg-pml-blue flex items-center justify-center p-1.5 shadow-md ring-1 ring-pml-blue/20 transition-transform group-hover:scale-105 shrink-0">
-            <Image
-              src="/marca/escudo-branco.png"
-              alt="Prefeitura de Lavras"
-              width={48}
-              height={48}
-              className="w-full h-full object-contain"
-              priority
-            />
+          <div
+            className={cn(
+              "size-12 rounded-2xl flex items-center justify-center p-1.5 shadow-md ring-1 transition-transform group-hover:scale-105 shrink-0",
+              logoUrl
+                ? "bg-white ring-border"
+                : "bg-pml-blue ring-pml-blue/20",
+            )}
+          >
+            {logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={logoUrl}
+                alt="Logo"
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <Image
+                src="/marca/escudo-branco.png"
+                alt="Prefeitura de Lavras"
+                width={48}
+                height={48}
+                className="w-full h-full object-contain"
+                priority
+              />
+            )}
           </div>
           <div className="flex flex-col leading-tight min-w-0">
             <span className="font-black text-base tracking-tight uppercase">
