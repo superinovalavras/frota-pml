@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
+import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
 
 const STORAGE_KEY = "frota-branding-v1";
 
@@ -40,6 +41,7 @@ function gravarLocal(logoUrl: string | null) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ logoUrl }));
   } catch (e) {
     console.error("Falha ao gravar branding no localStorage", e);
+    notificarArmazenamentoCheio();
   }
 }
 

@@ -38,6 +38,8 @@ export const usuarios: Usuario[] = [
     superintendenciaId: null,
     telefone: "",
     cnhCategoria: "B",
+    cnhNumero: "04823916705",
+    cnhValidade: "2029-08-20",
     fotoUrl: "/servidores/rodolfo.jpg",
   },
   {
@@ -54,6 +56,8 @@ export const usuarios: Usuario[] = [
     superintendenciaId: null,
     telefone: "",
     cnhCategoria: "B",
+    cnhNumero: "06195320487",
+    cnhValidade: "2027-11-30",
     fotoUrl: "/servidores/bruno.jpg",
   },
   {
@@ -86,6 +90,8 @@ export const usuarios: Usuario[] = [
     superintendenciaId: "sup-inovacao",
     telefone: "",
     cnhCategoria: "B",
+    cnhNumero: "07301548692",
+    cnhValidade: "2030-03-15",
     fotoUrl: "/servidores/raquel.jpg",
   },
   {

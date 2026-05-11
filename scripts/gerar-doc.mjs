@@ -41,13 +41,6 @@ function h2(text) {
     children: [new TextRun({ text, bold: true, color: AZUL, size: 26 })],
   });
 }
-function h3(text) {
-  return new Paragraph({
-    heading: HeadingLevel.HEADING_3,
-    spacing: { before: 200, after: 80 },
-    children: [new TextRun({ text, bold: true, color: CINZA, size: 23 })],
-  });
-}
 function p(text, opts = {}) {
   const runs = Array.isArray(text) ? text : [new TextRun({ text, size: 22 })];
   return new Paragraph({ spacing: { after: 120 }, ...opts, children: runs });

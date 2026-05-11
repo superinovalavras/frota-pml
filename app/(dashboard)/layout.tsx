@@ -3,6 +3,7 @@ import { Topbar } from "@/components/topbar";
 import { VeiculosProvider } from "@/lib/store/veiculos-context";
 import { AgendamentosProvider } from "@/lib/store/agendamentos-context";
 import { ConfirmacaoProvider } from "@/components/confirmacao-provider";
+import { AvisoArmazenamento } from "@/components/aviso-armazenamento";
 import { GuardaRota } from "@/components/guarda-rota";
 
 export default function DashboardLayout({
@@ -15,6 +16,7 @@ export default function DashboardLayout({
       <AgendamentosProvider>
         <ConfirmacaoProvider>
           <SidebarMobileProvider>
+            <AvisoArmazenamento />
             <div className="flex h-screen w-screen overflow-hidden">
               <Sidebar />
               <div className="flex-1 flex flex-col overflow-hidden">

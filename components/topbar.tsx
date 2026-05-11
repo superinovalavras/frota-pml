@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, LogOut, Menu, User as UserIcon } from "lucide-react";
 import { usePerfil } from "@/lib/perfil-context";
@@ -109,7 +108,7 @@ export function Topbar() {
             Meu perfil
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => router.push("/login")}>
+          <DropdownMenuItem onClick={() => router.replace("/login")}>
             <LogOut className="size-4" />
             Sair (voltar ao login)
           </DropdownMenuItem>

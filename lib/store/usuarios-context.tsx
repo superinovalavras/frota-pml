@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { usuarios as seed } from "@/lib/mock/usuarios";
+import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
 import type { Usuario } from "@/lib/mock/types";
 import { useFuncoes } from "./funcoes-context";
 
@@ -49,6 +50,7 @@ function gravarLocal(v: Usuario[]) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
   } catch (e) {
     console.error("Falha ao gravar usuarios no localStorage", e);
+    notificarArmazenamentoCheio();
   }
 }
 

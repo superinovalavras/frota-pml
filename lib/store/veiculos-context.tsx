@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import { veiculos as seed } from "@/lib/mock/veiculos";
+import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
 import type { Veiculo } from "@/lib/mock/types";
 
 const STORAGE_KEY = "frota-veiculos-v1";
@@ -42,6 +43,7 @@ function gravarLocal(v: Veiculo[]) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
   } catch (e) {
     console.error("Falha ao gravar veículos no localStorage", e);
+    notificarArmazenamentoCheio();
   }
 }
 

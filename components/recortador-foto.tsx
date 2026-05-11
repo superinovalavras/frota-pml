@@ -93,6 +93,7 @@ export function RecortadorFoto({
               zoom={zoom}
               aspect={aspecto}
               cropShape={formato === "round" ? "round" : "rect"}
+              objectFit="cover"
               showGrid={false}
               restrictPosition
               onCropChange={setCrop}

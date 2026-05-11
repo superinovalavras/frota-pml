@@ -153,11 +153,15 @@ export function AgendamentoForm({
   );
   const veiculo = veiculos.find((v) => v.id === veiculoId);
 
-  // Se o veículo selecionado deixou de ser visível (trocou solicitante), limpa.
+  // Se o veículo selecionado deixou de ser visível (trocou solicitante), limpa
+  // e avisa — para o usuário não salvar uma reserva sem veículo sem perceber.
   useEffect(() => {
     if (!aberto || !veiculoId) return;
     if (!veiculosVisiveis.some((v) => v.id === veiculoId)) {
       setVeiculoId("");
+      setErro(
+        "O veículo selecionado não é visível para o novo solicitante — escolha outro veículo.",
+      );
     }
   }, [aberto, veiculoId, veiculosVisiveis]);
 
@@ -328,7 +332,13 @@ export function AgendamentoForm({
           {/* Veículo com foto */}
           <div className="space-y-2 md:col-span-2">
             <Label>Veículo</Label>
-            <Select value={veiculoId} onValueChange={setVeiculoId}>
+            <Select
+              value={veiculoId}
+              onValueChange={(v) => {
+                setVeiculoId(v);
+                setErro(null);
+              }}
+            >
               <SelectTrigger className="w-full h-auto py-2">
                 <SelectValue placeholder="Selecionar veículo..." />
               </SelectTrigger>
@@ -432,7 +442,10 @@ export function AgendamentoForm({
             <Input
               id="af-partida"
               value={localPartida}
-              onChange={(e) => setLocalPartida(e.target.value)}
+              onChange={(e) => {
+                setLocalPartida(e.target.value);
+                setErro(null);
+              }}
               placeholder="Ex.: Pátio da SDES, Rua X 123"
             />
           </div>
@@ -474,7 +487,10 @@ export function AgendamentoForm({
             <Input
               id="af-destino"
               value={destino}
-              onChange={(e) => setDestino(e.target.value)}
+              onChange={(e) => {
+                setDestino(e.target.value);
+                setErro(null);
+              }}
               placeholder="Ex.: Centro Administrativo"
             />
           </div>
@@ -484,7 +500,10 @@ export function AgendamentoForm({
             <Input
               id="af-finalidade"
               value={finalidade}
-              onChange={(e) => setFinalidade(e.target.value)}
+              onChange={(e) => {
+                setFinalidade(e.target.value);
+                setErro(null);
+              }}
               placeholder="Ex.: Reunião com SETUR"
             />
           </div>

@@ -11,6 +11,7 @@ import {
 import type { ReactNode } from "react";
 import type { Agendamento, StatusAgendamento } from "@/lib/mock/types";
 import { gerarAgendamentosSeed } from "@/lib/mock/agendamentos";
+import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
 import { useVeiculos } from "./veiculos-context";
 
 const STORAGE_KEY = "frota-agendamentos-v2";
@@ -97,6 +98,7 @@ function gravarLocal(v: Agendamento[]) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
   } catch (e) {
     console.error("Falha ao gravar agendamentos no localStorage", e);
+    notificarArmazenamentoCheio();
   }
 }
 

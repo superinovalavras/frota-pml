@@ -32,7 +32,7 @@ import { formatDuracao } from "@/lib/agendamento-utils";
 import { StatusBadge } from "@/components/agenda/status-badge";
 import { AgendamentoForm } from "./agendamento-form";
 import { AgendamentoDetalhe } from "@/components/agenda/agendamento-detalhe";
-import type { Agendamento, StatusAgendamento } from "@/lib/mock/types";
+import type { Agendamento } from "@/lib/mock/types";
 
 const STATUS_FILTROS: { valor: string; label: string }[] = [
   { valor: "todos", label: "Todos os status" },
