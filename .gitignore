@@ -33,9 +33,20 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# credentials / service accounts — NUNCA commitar
+/credentials/
+*service-account*.json
+*-service-account*.json
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Fotos originais grandes — só a versão otimizada em /public/veiculos vai pro git
+/Foto dos carros/
+
+# Claude Code: configurações locais do usuário (não compartilhar)
+.claude/settings.local.json

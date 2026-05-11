@@ -1,0 +1,108 @@
+import type { Usuario } from "./types";
+import { SECRETARIA_ID } from "./secretarias";
+import { FUNCAO_MASTER_ID, FUNCAO_MOTORISTA_ID } from "./funcoes";
+
+/**
+ * Seed inicial — usuários reais da Superintendência de Inovação da
+ * Secretaria de Desenvolvimento, mais o Master administrador.
+ * O Master pode adicionar/editar/remover na tela de Administração.
+ */
+export const USUARIO_MASTER_ID = "u-ramon-master";
+
+export const usuarios: Usuario[] = [
+  {
+    id: USUARIO_MASTER_ID,
+    nome: "Ramon Fontana",
+    cpf: "",
+    masp: "",
+    email: "ramonsouza0212@gmail.com",
+    cargo: "Administrador do Sistema",
+    funcaoId: FUNCAO_MASTER_ID,
+    perfil: "master",
+    hierarquia: 1,
+    secretariaId: SECRETARIA_ID,
+    superintendenciaId: null,
+    telefone: "",
+  },
+  {
+    id: "u-rodolfo",
+    nome: "Rodolfo Alvarenga",
+    cpf: "",
+    masp: "",
+    email: "rodolfo.alvarenga@lavras.mg.gov.br",
+    cargo: "Secretário de Desenvolvimento",
+    funcaoId: "f-secretario",
+    perfil: "gestor",
+    hierarquia: 3,
+    secretariaId: SECRETARIA_ID,
+    superintendenciaId: null,
+    telefone: "",
+    cnhCategoria: "B",
+    fotoUrl: "/servidores/rodolfo.jpg",
+  },
+  {
+    id: "u-bruno",
+    nome: "Bruno dos Anjos Oliveira",
+    cpf: "",
+    masp: "",
+    email: "bruno.oliveira@lavras.mg.gov.br",
+    cargo: "Subsecretário de Urbanismo",
+    funcaoId: "f-subsecretario",
+    perfil: "gestor",
+    hierarquia: 5,
+    secretariaId: SECRETARIA_ID,
+    superintendenciaId: null,
+    telefone: "",
+    cnhCategoria: "B",
+    fotoUrl: "/servidores/bruno.jpg",
+  },
+  {
+    id: "u-rennan",
+    nome: "Rennan Campos",
+    cpf: "",
+    masp: "",
+    email: "rennan.campos@lavras.mg.gov.br",
+    cargo: "Superintendente de Inovação",
+    funcaoId: "f-superintendente",
+    perfil: "gestor",
+    hierarquia: 4,
+    secretariaId: SECRETARIA_ID,
+    superintendenciaId: "sup-inovacao",
+    telefone: "",
+    // sem CNH — precisará designar motorista nas reservas
+    fotoUrl: "/servidores/rennan.jpg",
+  },
+  {
+    id: "u-raquel",
+    nome: "Raquel Silva Pedrosa",
+    cpf: "",
+    masp: "",
+    email: "raquel.pedrosa@lavras.mg.gov.br",
+    cargo: "Agente de Inovação",
+    funcaoId: "f-servidor",
+    perfil: "servidor",
+    hierarquia: 10,
+    secretariaId: SECRETARIA_ID,
+    superintendenciaId: "sup-inovacao",
+    telefone: "",
+    cnhCategoria: "B",
+    fotoUrl: "/servidores/raquel.jpg",
+  },
+  {
+    id: "u-motorista-jose",
+    nome: "José Antônio Lima",
+    cpf: "",
+    masp: "",
+    email: "jose.lima@lavras.mg.gov.br",
+    cargo: "Motorista oficial",
+    funcaoId: FUNCAO_MOTORISTA_ID,
+    perfil: "servidor",
+    hierarquia: 99,
+    secretariaId: SECRETARIA_ID,
+    superintendenciaId: null,
+    telefone: "",
+    cnhCategoria: "D",
+    cnhNumero: "07654321098",
+    cnhValidade: "2028-04-15",
+  },
+];
