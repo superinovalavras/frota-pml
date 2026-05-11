@@ -10,9 +10,7 @@ import {
   MousePointerClick,
   Car,
   IdCard,
-  User,
   Clock,
-  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -645,22 +643,30 @@ function TooltipContentRico({
     ? `${[veiculo.marca, veiculo.modelo].filter(Boolean).join(" ")} · ${veiculo.placa}`
     : "Veículo removido";
 
+  const horarioStr = a.diaTodo
+    ? `${new Date(a.inicio).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })} · dia todo`
+    : `${formatDataHoraTooltip(a.inicio)} → ${formatHora(a.fim)} (${formatDuracao(a.inicio, a.fim)})`;
+
   return (
     <TooltipContent
-      side="top"
-      sideOffset={6}
-      className="max-w-[300px] px-3 py-2.5 text-xs leading-snug"
+      side="right"
+      align="start"
+      sideOffset={8}
+      collisionPadding={12}
+      className="max-w-[280px] px-3 py-2 text-xs leading-snug"
     >
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         <div>
           <div className="font-semibold leading-tight">{a.destino}</div>
-          <div className="opacity-80 mt-0.5">
+          <div className="opacity-75 mt-0.5">
             {rotuloStatusAgendamento(a.status)}
-            {a.diaTodo && " · dia todo"}
           </div>
         </div>
-
-        <div className="border-t border-background/20 pt-2 space-y-1">
+        <div className="border-t border-background/20 pt-1.5 space-y-1">
+          <div className="flex items-start gap-1.5">
+            <Clock className="size-3 opacity-70 mt-0.5 shrink-0" />
+            <span className="break-words">{horarioStr}</span>
+          </div>
           <div className="flex items-start gap-1.5">
             <Car className="size-3 opacity-70 mt-0.5 shrink-0" />
             <span className="break-words">{nomeVeiculo}</span>
@@ -668,57 +674,12 @@ function TooltipContentRico({
           <div className="flex items-start gap-1.5">
             <IdCard className="size-3 opacity-70 mt-0.5 shrink-0" />
             <span className="break-words">
-              <span className="opacity-70">Motorista:</span>{" "}
-              {motorista?.nome ?? "não designado"}
-              {motorista?.cnhCategoria ? ` (CNH ${motorista.cnhCategoria})` : ""}
+              {motorista?.nome ?? "Motorista não designado"}
             </span>
           </div>
-          <div className="flex items-start gap-1.5 opacity-90">
-            <User className="size-3 opacity-70 mt-0.5 shrink-0" />
-            <span className="break-words">
-              <span className="opacity-70">Solicitante:</span>{" "}
-              {solicitante?.nome ?? "—"}
-            </span>
-          </div>
-          {a.localPartida && (
-            <div className="flex items-start gap-1.5 opacity-90">
-              <MapPin className="size-3 opacity-70 mt-0.5 shrink-0" />
-              <span className="break-words truncate">{a.localPartida}</span>
-            </div>
-          )}
         </div>
-
-        <div className="border-t border-background/20 pt-2">
-          <div className="flex items-start gap-1.5">
-            <Clock className="size-3 opacity-70 mt-0.5 shrink-0" />
-            <div className="space-y-0.5">
-              {a.diaTodo ? (
-                <div>
-                  <span className="opacity-70">Data:</span>{" "}
-                  {new Date(a.inicio).toLocaleDateString("pt-BR", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <span className="opacity-70">Saída:</span>{" "}
-                    {formatDataHoraTooltip(a.inicio)}
-                  </div>
-                  <div>
-                    <span className="opacity-70">Devolução:</span>{" "}
-                    {formatDataHoraTooltip(a.fim)}
-                  </div>
-                  <div className="opacity-70 text-[11px]">
-                    Duração: {formatDuracao(a.inicio, a.fim)}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+        <div className="border-t border-background/20 pt-1.5 opacity-60 text-[11px]">
+          Solicitante: {solicitante?.nome ?? "—"} · clique para ver tudo
         </div>
       </div>
     </TooltipContent>

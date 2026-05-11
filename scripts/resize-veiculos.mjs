@@ -18,8 +18,8 @@ for (const { src, out } of arquivos) {
   try {
     await sharp(inputPath)
       .rotate()
-      .resize(800, 600, { fit: "cover", position: "attention" })
-      .jpeg({ quality: 82, mozjpeg: true })
+      .resize(800, 600, { fit: "cover", position: "centre" })
+      .jpeg({ quality: 84, mozjpeg: true })
       .toFile(outputPath);
     const stat = await fs.stat(outputPath);
     console.log(`✓ ${out}  (${Math.round(stat.size / 1024)} KB)`);
