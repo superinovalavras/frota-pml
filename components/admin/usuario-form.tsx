@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AlertTriangle, Car } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Camera, Car, Loader2, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useFuncoes } from "@/lib/store/funcoes-context";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useOrgaos } from "@/lib/store/orgaos-context";
 import { CATEGORIAS_CNH } from "@/lib/formatters";
+import { lerArquivoComoDataUrl } from "@/lib/imagem";
+import { RecortadorFoto } from "@/components/recortador-foto";
 import { superintendencias } from "@/lib/mock/superintendencias";
 import { USUARIO_MASTER_ID } from "@/lib/mock/usuarios";
 import type { CategoriaCNH, Usuario } from "@/lib/mock/types";
@@ -43,6 +46,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
   const { orgaos } = useOrgaos();
   const editando = usuario !== null;
   const ehMaster = usuario?.id === USUARIO_MASTER_ID;
+  const inputFotoRef = useRef<HTMLInputElement>(null);
 
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
@@ -56,6 +60,11 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
   const [cnhCategoria, setCnhCategoria] = useState<string>("");
   const [cnhNumero, setCnhNumero] = useState("");
   const [cnhValidade, setCnhValidade] = useState("");
+  const [fotoUrl, setFotoUrl] = useState<string | undefined>(undefined);
+  const [imagemParaRecortar, setImagemParaRecortar] = useState<string | null>(
+    null,
+  );
+  const [carregandoFoto, setCarregandoFoto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,6 +82,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
       setCnhCategoria(usuario.cnhCategoria ?? "");
       setCnhNumero(usuario.cnhNumero ?? "");
       setCnhValidade(usuario.cnhValidade ?? "");
+      setFotoUrl(usuario.fotoUrl);
     } else {
       setNome("");
       setCpf("");
@@ -89,9 +99,36 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
       setCnhCategoria("");
       setCnhNumero("");
       setCnhValidade("");
+      setFotoUrl(undefined);
     }
+    setImagemParaRecortar(null);
     setErro(null);
   }, [aberto, usuario, funcoesOrdenadas, orgaos]);
+
+  async function aoSelecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCarregandoFoto(true);
+    setErro(null);
+    try {
+      const dataUrl = await lerArquivoComoDataUrl(file);
+      setImagemParaRecortar(dataUrl);
+    } catch (err) {
+      console.error(err);
+      setErro("Não foi possível ler a imagem.");
+    } finally {
+      setCarregandoFoto(false);
+      if (inputFotoRef.current) inputFotoRef.current.value = "";
+    }
+  }
+
+  const iniciais = (nome || "?")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 
   const funcaoSelecionada = buscarFuncao(funcaoId);
   const supDoOrgao = superintendencias.filter(
@@ -189,12 +226,14 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
       : undefined;
     base.cnhNumero = cnhNumero.trim() || undefined;
     base.cnhValidade = cnhValidade || undefined;
+    base.fotoUrl = fotoUrl;
 
     salvar(base);
     onClose();
   }
 
   return (
+    <>
     <Dialog open={aberto} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -209,6 +248,55 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          {/* Foto de perfil */}
+          <div className="md:col-span-2 flex items-center gap-4">
+            <Avatar className="size-20 ring-2 ring-border">
+              {fotoUrl && <AvatarImage src={fotoUrl} alt={nome} />}
+              <AvatarFallback className="bg-primary/10 text-primary text-lg font-semibold">
+                {iniciais}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col gap-2">
+              <input
+                ref={inputFotoRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={aoSelecionarFoto}
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => inputFotoRef.current?.click()}
+                  disabled={carregandoFoto}
+                >
+                  {carregandoFoto ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Camera className="size-4" />
+                  )}
+                  {fotoUrl ? "Trocar foto" : "Adicionar foto"}
+                </Button>
+                {fotoUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFotoUrl(undefined)}
+                  >
+                    <X className="size-4" />
+                    Remover
+                  </Button>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Após escolher, você poderá enquadrar (posicionar e dar zoom).
+              </p>
+            </div>
+          </div>
+
           <div className="md:col-span-2 space-y-2">
             <Label htmlFor="uf-nome">Nome completo</Label>
             <Input
@@ -423,5 +511,19 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <RecortadorFoto
+      imagemSrc={imagemParaRecortar}
+      aspecto={1}
+      maxLado={512}
+      formato="round"
+      titulo="Enquadrar foto de perfil"
+      onConfirmar={(dataUrl) => {
+        setFotoUrl(dataUrl);
+        setImagemParaRecortar(null);
+      }}
+      onCancelar={() => setImagemParaRecortar(null)}
+    />
+    </>
   );
 }

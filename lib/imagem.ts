@@ -39,6 +39,11 @@ function fileToDataURL(file: File): Promise<string> {
   });
 }
 
+/** Lê um File de imagem e devolve um data URL (sem redimensionar). */
+export function lerArquivoComoDataUrl(file: File): Promise<string> {
+  return fileToDataURL(file);
+}
+
 function carregarImagem(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -46,4 +51,42 @@ function carregarImagem(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error("Falha ao carregar imagem"));
     img.src = src;
   });
+}
+
+/**
+ * Recorta uma região (em pixels da imagem original) de uma imagem e devolve
+ * um data URL JPEG. Limita o lado maior do resultado a `maxLado` px.
+ */
+export async function recortarImagem(
+  imagemSrc: string,
+  regiao: { x: number; y: number; width: number; height: number },
+  maxLado = 1000,
+): Promise<string> {
+  const img = await carregarImagem(imagemSrc);
+  let outW = Math.max(1, Math.round(regiao.width));
+  let outH = Math.max(1, Math.round(regiao.height));
+  const maior = Math.max(outW, outH);
+  if (maior > maxLado) {
+    const r = maxLado / maior;
+    outW = Math.max(1, Math.round(outW * r));
+    outH = Math.max(1, Math.round(outH * r));
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return imagemSrc;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(
+    img,
+    regiao.x,
+    regiao.y,
+    regiao.width,
+    regiao.height,
+    0,
+    0,
+    outW,
+    outH,
+  );
+  return canvas.toDataURL("image/jpeg", 0.85);
 }

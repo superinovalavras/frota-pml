@@ -15,8 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useVeiculos } from "@/lib/store/veiculos-context";
-import { lerImagemRedimensionada } from "@/lib/imagem";
+import { lerArquivoComoDataUrl } from "@/lib/imagem";
 import { usePerfil } from "@/lib/perfil-context";
+import { RecortadorFoto } from "@/components/recortador-foto";
 import type { Veiculo } from "@/lib/mock/types";
 
 interface Props {
@@ -36,6 +37,9 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const [observacoes, setObservacoes] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | undefined>(undefined);
   const [carregandoFoto, setCarregandoFoto] = useState(false);
+  const [imagemParaRecortar, setImagemParaRecortar] = useState<string | null>(
+    null,
+  );
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -56,6 +60,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setObservacoes("");
       setFotoUrl(undefined);
     }
+    setImagemParaRecortar(null);
     setConfirmarExclusao(false);
     setErro(null);
   }, [aberto, modo, veiculo]);
@@ -66,8 +71,8 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
     setCarregandoFoto(true);
     setErro(null);
     try {
-      const dataUrl = await lerImagemRedimensionada(file);
-      setFotoUrl(dataUrl);
+      const dataUrl = await lerArquivoComoDataUrl(file);
+      setImagemParaRecortar(dataUrl);
     } catch (err) {
       console.error(err);
       setErro("Não foi possível ler a imagem.");
@@ -138,6 +143,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   }
 
   return (
+    <>
     <Dialog open={aberto} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -299,5 +305,18 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <RecortadorFoto
+      imagemSrc={imagemParaRecortar}
+      aspecto={16 / 9}
+      maxLado={1280}
+      titulo="Enquadrar foto do veículo"
+      onConfirmar={(dataUrl) => {
+        setFotoUrl(dataUrl);
+        setImagemParaRecortar(null);
+      }}
+      onCancelar={() => setImagemParaRecortar(null)}
+    />
+    </>
   );
 }

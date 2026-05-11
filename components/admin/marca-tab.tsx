@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBranding } from "@/lib/store/branding-context";
 import { useConfirmacao } from "@/components/confirmacao-provider";
-import { lerImagemRedimensionada } from "@/lib/imagem";
+import { lerArquivoComoDataUrl } from "@/lib/imagem";
+import { RecortadorFoto } from "@/components/recortador-foto";
 
 export function MarcaTab() {
   const { logoUrl, setLogo } = useBranding();
   const { confirmar } = useConfirmacao();
   const inputRef = useRef<HTMLInputElement>(null);
   const [carregando, setCarregando] = useState(false);
+  const [imagemParaRecortar, setImagemParaRecortar] = useState<string | null>(
+    null,
+  );
   const [erro, setErro] = useState<string | null>(null);
 
   async function aoSelecionar(e: React.ChangeEvent<HTMLInputElement>) {
@@ -21,9 +25,8 @@ export function MarcaTab() {
     setCarregando(true);
     setErro(null);
     try {
-      // Logo pode ser maior que um avatar — até 600px no maior lado.
-      const dataUrl = await lerImagemRedimensionada(file, 600);
-      setLogo(dataUrl);
+      const dataUrl = await lerArquivoComoDataUrl(file);
+      setImagemParaRecortar(dataUrl);
     } catch (err) {
       console.error(err);
       setErro("Não foi possível ler a imagem. Tente um arquivo PNG ou JPG.");
@@ -147,6 +150,18 @@ export function MarcaTab() {
           </div>
         </CardContent>
       </Card>
+
+      <RecortadorFoto
+        imagemSrc={imagemParaRecortar}
+        aspecto={1}
+        maxLado={512}
+        titulo="Enquadrar a logo"
+        onConfirmar={(dataUrl) => {
+          setLogo(dataUrl);
+          setImagemParaRecortar(null);
+        }}
+        onCancelar={() => setImagemParaRecortar(null)}
+      />
     </div>
   );
 }
