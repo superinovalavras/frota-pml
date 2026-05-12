@@ -79,6 +79,8 @@ export interface Usuario {
   cnhValidade?: string;
   /** URL ou caminho da foto de perfil (ex.: "/servidores/fulano.jpg"). */
   fotoUrl?: string;
+  /** Vínculo (1:1) com o usuário de autenticação do Supabase. null até o 1º login. */
+  authUserId?: string | null;
 }
 
 export interface Veiculo {

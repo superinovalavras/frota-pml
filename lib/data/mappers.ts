@@ -123,6 +123,7 @@ export function usuarioFromRow(r: Tables["profiles"]["Row"]): Usuario {
     cnhNumero: r.cnh_numero ?? undefined,
     cnhValidade: r.cnh_validade ?? undefined,
     fotoUrl: r.foto_url ?? undefined,
+    authUserId: r.auth_user_id,
   };
 }
 export function usuarioToRow(u: Usuario): Tables["profiles"]["Insert"] {

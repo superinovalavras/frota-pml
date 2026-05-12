@@ -19,7 +19,7 @@ import { temCnhValida } from "@/lib/agendamento-utils";
 import { useSidebarMobile } from "@/components/sidebar";
 
 export function Topbar() {
-  const { usuario, funcao, secretaria, superintendencia } = usePerfil();
+  const { usuario, funcao, secretaria, superintendencia, sair } = usePerfil();
   const router = useRouter();
   const { abrir: abrirSidebar } = useSidebarMobile();
   const iniciais = (usuario.nome || "?")
@@ -108,9 +108,9 @@ export function Topbar() {
             Meu perfil
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => router.replace("/login")}>
+          <DropdownMenuItem onClick={() => void sair()}>
             <LogOut className="size-4" />
-            Sair (voltar ao login)
+            Sair
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
