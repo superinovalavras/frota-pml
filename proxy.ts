@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server";
 import { atualizarSessao } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+// Next 16: o antigo `middleware.ts` virou `proxy.ts`.
+export async function proxy(request: NextRequest) {
   return atualizarSessao(request);
 }
 
