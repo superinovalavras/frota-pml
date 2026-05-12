@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { recortarImagem } from "@/lib/imagem";
+import { enviarImagem, type PastaImagem } from "@/lib/storage/imagens";
 
 interface Area {
   x: number;
@@ -31,7 +32,13 @@ interface Props {
   titulo?: string;
   /** Forma da máscara de recorte. */
   formato?: "rect" | "round";
-  onConfirmar: (dataUrl: string) => void;
+  /**
+   * Se informado, após o recorte a imagem é enviada para o Supabase Storage
+   * nessa pasta e `onConfirmar` recebe a URL pública. Se omitido, `onConfirmar`
+   * recebe o data URL (comportamento antigo).
+   */
+  enviarPara?: PastaImagem;
+  onConfirmar: (url: string) => void;
   onCancelar: () => void;
 }
 
@@ -41,6 +48,7 @@ export function RecortadorFoto({
   maxLado = 1000,
   titulo = "Enquadrar foto",
   formato = "rect",
+  enviarPara,
   onConfirmar,
   onCancelar,
 }: Props) {
@@ -65,7 +73,18 @@ export function RecortadorFoto({
     setProcessando(true);
     try {
       const dataUrl = await recortarImagem(imagemSrc, areaPixels, maxLado);
-      onConfirmar(dataUrl);
+      if (!enviarPara) {
+        onConfirmar(dataUrl);
+        return;
+      }
+      try {
+        const url = await enviarImagem(dataUrl, enviarPara);
+        onConfirmar(url);
+      } catch (errUpload) {
+        // Fallback: usa o data URL mesmo (a foto funciona; só fica embutida).
+        console.error("Falha ao enviar imagem ao storage", errUpload);
+        onConfirmar(dataUrl);
+      }
     } catch (e) {
       console.error("Falha ao recortar imagem", e);
       onCancelar();

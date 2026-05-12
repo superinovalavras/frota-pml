@@ -9,20 +9,21 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
+import { lerLogoUrl, gravarLogoUrl } from "@/lib/data/configuracoes";
 
 const STORAGE_KEY = "frota-branding-v1";
 
 interface BrandingContextValue {
-  /** Data URL da logo customizada, ou null para usar a logo padrão. */
+  /** URL da logo personalizada (Supabase Storage), ou null para a padrão. */
   logoUrl: string | null;
-  /** Define (data URL) ou limpa (null) a logo customizada. */
-  setLogo: (dataUrl: string | null) => void;
+  /** Define ou limpa (null) a logo. */
+  setLogo: (url: string | null) => void;
   hidratado: boolean;
 }
 
 const BrandingContext = createContext<BrandingContextValue | null>(null);
 
+// --- cache local (resiliência enquanto a migration 0002 não está aplicada) ---
 function lerLocal(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -34,14 +35,12 @@ function lerLocal(): string | null {
     return null;
   }
 }
-
 function gravarLocal(logoUrl: string | null) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ logoUrl }));
-  } catch (e) {
-    console.error("Falha ao gravar branding no localStorage", e);
-    notificarArmazenamentoCheio();
+  } catch {
+    /* ignore */
   }
 }
 
@@ -50,13 +49,27 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const [hidratado, setHidratado] = useState(false);
 
   useEffect(() => {
-    setLogoUrl(lerLocal());
-    setHidratado(true);
+    let vivo = true;
+    lerLogoUrl()
+      .then((url) => {
+        if (vivo) setLogoUrl(url);
+      })
+      .catch(() => {
+        // Tabela `configuracoes` ainda não existe → usa o cache local.
+        if (vivo) setLogoUrl(lerLocal());
+      })
+      .finally(() => {
+        if (vivo) setHidratado(true);
+      });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
-  const setLogo = useCallback((dataUrl: string | null) => {
-    setLogoUrl(dataUrl);
-    gravarLocal(dataUrl);
+  const setLogo = useCallback((url: string | null) => {
+    setLogoUrl(url);
+    gravarLocal(url);
+    gravarLogoUrl(url).catch((e) => console.error("Falha ao salvar logo", e));
   }, []);
 
   const value = useMemo<BrandingContextValue>(
@@ -74,7 +87,6 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 export function useBranding(): BrandingContextValue {
   const ctx = useContext(BrandingContext);
   if (!ctx) {
-    // Fallback no-op caso o provider falte em alguma rota.
     return { logoUrl: null, setLogo: () => {}, hidratado: true };
   }
   return ctx;

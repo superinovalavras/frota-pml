@@ -311,8 +311,9 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       aspecto={16 / 9}
       maxLado={1280}
       titulo="Enquadrar foto do veículo"
-      onConfirmar={(dataUrl) => {
-        setFotoUrl(dataUrl);
+      enviarPara="veiculos"
+      onConfirmar={(url) => {
+        setFotoUrl(url);
         setImagemParaRecortar(null);
       }}
       onCancelar={() => setImagemParaRecortar(null)}

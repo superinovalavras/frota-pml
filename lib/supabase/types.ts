@@ -87,6 +87,12 @@ type VeiculoRow = {
   criado_em: string;
 };
 
+type ConfiguracaoRow = {
+  chave: string;
+  valor: unknown;
+  atualizado_em: string;
+};
+
 type AgendamentoRow = {
   id: string;
   veiculo_id: string;
@@ -129,6 +135,7 @@ export type Database = {
       profiles: TableShape<ProfileRow>;
       veiculos: TableShape<VeiculoRow>;
       agendamentos: TableShape<AgendamentoRow>;
+      configuracoes: TableShape<ConfiguracaoRow>;
     };
     Views: { [_ in never]: never };
     Functions: {

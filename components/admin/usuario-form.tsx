@@ -518,8 +518,9 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
       maxLado={512}
       formato="round"
       titulo="Enquadrar foto de perfil"
-      onConfirmar={(dataUrl) => {
-        setFotoUrl(dataUrl);
+      enviarPara="perfis"
+      onConfirmar={(url) => {
+        setFotoUrl(url);
         setImagemParaRecortar(null);
       }}
       onCancelar={() => setImagemParaRecortar(null)}

@@ -142,10 +142,9 @@ export function MarcaTab() {
           <div className="flex items-start gap-2 rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
             <Info className="size-4 shrink-0 mt-0.5" />
             <p>
-              Nesta fase (protótipo), a logo fica salva apenas neste
-              navegador. Quem abrir o sistema em outro dispositivo verá a
-              logo padrão. Na Fase 2, com o banco de dados, a logo
-              personalizada será compartilhada para todos.
+              A logo é salva no servidor e compartilhada para todos os
+              dispositivos. O arquivo enviado é recortado e otimizado
+              automaticamente antes de subir.
             </p>
           </div>
         </CardContent>
@@ -156,8 +155,9 @@ export function MarcaTab() {
         aspecto={1}
         maxLado={512}
         titulo="Enquadrar a logo"
-        onConfirmar={(dataUrl) => {
-          setLogo(dataUrl);
+        enviarPara="marca"
+        onConfirmar={(url) => {
+          setLogo(url);
           setImagemParaRecortar(null);
         }}
         onCancelar={() => setImagemParaRecortar(null)}
