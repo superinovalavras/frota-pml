@@ -167,36 +167,46 @@ Tabelas principais (a detalhar nas migrations):
 
 ## Fase Atual
 
-**Fase 1 — Frontend com dados mockados (sem backend)**
+**Fase 2 — Integração com o Supabase, rumo a operacional.**
 
-Foco: construir e validar toda a interface visual antes de conectar qualquer serviço externo.
-Todos os dados são mockados em `lib/mock/`. Nenhuma chamada real a Supabase, Google ou OCR nesta fase.
+A Fase 1 (frontend com mock data) está concluída. Agora:
 
-Prioridade de implementação:
-1. Layout base + navegação por perfil
-2. Tela de login (sem autenticação real — simular troca de perfil)
-3. Agenda visual (dia / semana / mês)
-4. Agendamento de veículo
-5. Tela de veículos e status
-6. Check-in / Check-out (sem OCR real)
-7. Dashboard analítico
-8. Cadastro de usuários e motoristas (Master)
+Feito (Fase 2a/2b):
+- Supabase conectado: clientes em `lib/supabase/`, acesso a dados em `lib/data/`.
+- Contextos (`orgaos`, `funcoes`, `usuarios`, `veiculos`, `agendamentos`, `branding`)
+  leem/gravam no Supabase em vez de localStorage.
+- Fotos (veículo, perfil, logo) vão para o Supabase Storage (bucket `imagens`),
+  via a rota `/api/imagens`.
+- Login real (CPF/MASP/e-mail + senha) com Supabase Auth; `profiles.auth_user_id`
+  vincula o perfil à conta. O "modo demonstração" (seletor de perfil) segue
+  disponível enquanto a RLS não estiver endurecida.
+- `middleware.ts` renova a sessão.
 
-**Fase 2 — Integração (depois que o visual estiver aprovado):**
-- Supabase (auth + banco + RLS)
-- Google Calendar
-- Google Drive
-- OCR
+Pendente:
+- Aplicar a migration `0003_rls.sql` (RLS real por perfil/secretaria + trigger
+  que sincroniza `veiculos.status`). Só depois de validar o login. Quando
+  aplicada, o "modo demonstração" deixa de ver dados.
+- Auto-edição de "Meu perfil" (server action que restringe colunas).
+- Regra de conflito por hierarquia (substitui + notifica) — hoje só há detecção
+  de sobreposição em `lib/agendamento-utils.ts`.
+- Tabela `notificacoes` + envio de e-mail.
+- Superintendências ainda vêm de `lib/mock/superintendencias.ts` (estático) em
+  vários componentes; o banco já tem os dados.
+- Integrações opcionais (não bloqueiam o "operacional"): Google Calendar
+  (espelho de eventos), OCR do odômetro no check-in. Offline no check-in fica
+  para uma atualização futura.
+
+Hospedagem alvo: Vercel + Supabase (planos gratuitos). Há `vercel.json` com um
+cron diário em `/api/keep-alive` para o projeto Supabase não pausar.
 
 ---
 
 ## Notas para o Claude
 
-- **Fase 1 é 100% frontend com mock data** — não instalar nem importar Supabase ainda
-- Dados mockados ficam em `lib/mock/` — criar arquivos separados por entidade (veiculos.ts, usuarios.ts, agendamentos.ts, etc.)
-- Simular diferentes perfis de usuário via contexto (sem auth real) para visualizar as diferenças de permissão
-- Antes de criar qualquer componente de UI, verifique se já existe algo equivalente em `components/`
-- Ao implementar RLS (fase 2), sempre testar com usuários de diferentes perfis
-- OCR pode falhar — sempre permitir edição manual do valor extraído
-- Offline support no check-in é requisito, não opcional (fase 2)
-- Quando houver dúvida sobre regra de negócio, consulte `docs/Gestao_Veiculos_Lavras_v1.docx`
+- Antes de criar qualquer componente de UI, verifique se já existe algo equivalente em `components/`.
+- Acesso ao banco: centralizar em `lib/data/` (não chamar `supabaseBrowser()` espalhado pelas telas).
+- Tipos do banco em `lib/supabase/types.ts` são mantidos à mão — usar `type`, não `interface` (compatibilidade com os genéricos do supabase-js).
+- Datas de agendamento: o banco usa `timestamptz`; o app trabalha com "hora de parede de Lavras" (UTC−3, sem horário de verão). A conversão fica nos mappers (`lib/data/mappers.ts`).
+- Ao mexer em RLS, sempre testar com usuários de diferentes perfis.
+- OCR (quando voltar ao escopo) pode falhar — sempre permitir edição manual do valor extraído.
+- Quando houver dúvida sobre regra de negócio, consulte `docs/Gestao_Veiculos_Lavras_v1.docx`.
