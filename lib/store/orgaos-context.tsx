@@ -9,13 +9,16 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { secretarias as seed } from "@/lib/mock/secretarias";
 import type { Secretaria } from "@/lib/mock/types";
-
-const STORAGE_KEY = "frota-orgaos-v1";
+import {
+  listarSecretarias,
+  removerSecretaria,
+  upsertSecretaria,
+} from "@/lib/data/frota";
 
 interface OrgaosContextValue {
   orgaos: Secretaria[];
+  carregando: boolean;
   buscarPorId: (id: string) => Secretaria | undefined;
   salvar: (o: Secretaria) => void;
   remover: (id: string) => void;
@@ -23,42 +26,24 @@ interface OrgaosContextValue {
 
 const OrgaosContext = createContext<OrgaosContextValue | null>(null);
 
-function lerLocal(): Secretaria[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Secretaria[];
-    if (!Array.isArray(parsed)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function gravarLocal(v: Secretaria[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
-  } catch (e) {
-    console.error("Falha ao gravar orgaos no localStorage", e);
-  }
-}
-
 export function OrgaosProvider({ children }: { children: ReactNode }) {
-  const [orgaos, setOrgaos] = useState<Secretaria[]>(seed);
-  const [hidratado, setHidratado] = useState(false);
+  const [orgaos, setOrgaos] = useState<Secretaria[]>([]);
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    const local = lerLocal();
-    if (local) setOrgaos(local);
-    setHidratado(true);
+    let vivo = true;
+    listarSecretarias()
+      .then((lista) => {
+        if (vivo) setOrgaos(lista);
+      })
+      .catch((e) => console.error("Falha ao carregar órgãos", e))
+      .finally(() => {
+        if (vivo) setCarregando(false);
+      });
+    return () => {
+      vivo = false;
+    };
   }, []);
-
-  useEffect(() => {
-    if (!hidratado) return;
-    gravarLocal(orgaos);
-  }, [orgaos, hidratado]);
 
   const buscarPorId = useCallback(
     (id: string) => orgaos.find((o) => o.id === id),
@@ -71,15 +56,17 @@ export function OrgaosProvider({ children }: { children: ReactNode }) {
       if (idx === -1) return [...atual, o];
       return atual.map((x, i) => (i === idx ? o : x));
     });
+    upsertSecretaria(o).catch((e) => console.error("Falha ao salvar órgão", e));
   }, []);
 
   const remover = useCallback((id: string) => {
     setOrgaos((atual) => atual.filter((o) => o.id !== id));
+    removerSecretaria(id).catch((e) => console.error("Falha ao remover órgão", e));
   }, []);
 
   const value = useMemo<OrgaosContextValue>(
-    () => ({ orgaos, buscarPorId, salvar, remover }),
-    [orgaos, buscarPorId, salvar, remover],
+    () => ({ orgaos, carregando, buscarPorId, salvar, remover }),
+    [orgaos, carregando, buscarPorId, salvar, remover],
   );
 
   return (

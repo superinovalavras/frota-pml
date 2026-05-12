@@ -10,15 +10,16 @@ import {
 } from "react";
 import type { ReactNode } from "react";
 import type { Agendamento, StatusAgendamento } from "@/lib/mock/types";
-import { gerarAgendamentosSeed } from "@/lib/mock/agendamentos";
-import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
+import {
+  listarAgendamentos,
+  removerAgendamento,
+  upsertAgendamento,
+} from "@/lib/data/frota";
 import { useVeiculos } from "./veiculos-context";
-
-const STORAGE_KEY = "frota-agendamentos-v2";
-const STORAGE_KEY_LEGACY = "frota-agendamentos-v1";
 
 interface AgendamentosContextValue {
   agendamentos: Agendamento[];
+  carregando: boolean;
   buscarPorId: (id: string) => Agendamento | undefined;
   criar: (a: Omit<Agendamento, "id" | "criadoEm">) => Agendamento;
   salvar: (a: Agendamento) => void;
@@ -26,107 +27,40 @@ interface AgendamentosContextValue {
   remover: (id: string) => void;
 }
 
-const AgendamentosContext = createContext<AgendamentosContextValue | null>(
-  null,
-);
+const AgendamentosContext = createContext<AgendamentosContextValue | null>(null);
 
-/** Migra registros antigos (passageiros como número, sem dia todo, sem locais) */
-function migrar(raw: unknown): Agendamento[] {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((a: unknown): Agendamento | null => {
-      if (!a || typeof a !== "object") return null;
-      const o = a as Record<string, unknown>;
-      if (!o.id || !o.veiculoId || !o.inicio || !o.fim) return null;
-      return {
-        id: String(o.id),
-        veiculoId: String(o.veiculoId),
-        solicitanteId: String(o.solicitanteId ?? ""),
-        motoristaId:
-          typeof o.motoristaId === "string" ? o.motoristaId : null,
-        inicio: String(o.inicio),
-        fim: String(o.fim),
-        diaTodo: !!o.diaTodo,
-        localPartida: typeof o.localPartida === "string" ? o.localPartida : "",
-        localDevolucao:
-          typeof o.localDevolucao === "string" ? o.localDevolucao : "",
-        destino: String(o.destino ?? ""),
-        finalidade: String(o.finalidade ?? ""),
-        passageiros: Array.isArray(o.passageiros) ? (o.passageiros as never) : [],
-        status: (o.status as StatusAgendamento) ?? "pendente",
-        observacoes:
-          typeof o.observacoes === "string" ? o.observacoes : undefined,
-        criadoEm: String(o.criadoEm ?? new Date().toISOString()),
-        checkinEm: typeof o.checkinEm === "string" ? o.checkinEm : undefined,
-        kmSaida: typeof o.kmSaida === "number" ? o.kmSaida : undefined,
-        fotoSaidaUrl:
-          typeof o.fotoSaidaUrl === "string" ? o.fotoSaidaUrl : undefined,
-        obsSaida: typeof o.obsSaida === "string" ? o.obsSaida : undefined,
-        checkoutEm:
-          typeof o.checkoutEm === "string" ? o.checkoutEm : undefined,
-        kmRetorno: typeof o.kmRetorno === "number" ? o.kmRetorno : undefined,
-        fotoRetornoUrl:
-          typeof o.fotoRetornoUrl === "string" ? o.fotoRetornoUrl : undefined,
-        obsRetorno:
-          typeof o.obsRetorno === "string" ? o.obsRetorno : undefined,
-      };
-    })
-    .filter((x): x is Agendamento => x !== null);
-}
-
-function lerLocal(): Agendamento[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return migrar(JSON.parse(raw));
-    // Migração one-shot do storage antigo
-    const legacy = window.localStorage.getItem(STORAGE_KEY_LEGACY);
-    if (legacy) {
-      const migrado = migrar(JSON.parse(legacy));
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(migrado));
-      return migrado;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function gravarLocal(v: Agendamento[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
-  } catch (e) {
-    console.error("Falha ao gravar agendamentos no localStorage", e);
-    notificarArmazenamentoCheio();
-  }
+function persistir(a: Agendamento) {
+  upsertAgendamento(a).catch((e) =>
+    console.error("Falha ao salvar agendamento", e),
+  );
 }
 
 export function AgendamentosProvider({ children }: { children: ReactNode }) {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [hidratado, setHidratado] = useState(false);
+  const [carregando, setCarregando] = useState(true);
   const { salvar: salvarVeiculo, veiculos } = useVeiculos();
 
   useEffect(() => {
-    const local = lerLocal();
-    if (local) {
-      setAgendamentos(local);
-    } else {
-      // Primeira visita — popula com agendamentos seed relativos a hoje.
-      setAgendamentos(gerarAgendamentosSeed());
-    }
-    setHidratado(true);
+    let vivo = true;
+    listarAgendamentos()
+      .then((lista) => {
+        if (vivo) setAgendamentos(lista);
+      })
+      .catch((e) => console.error("Falha ao carregar agendamentos", e))
+      .finally(() => {
+        if (vivo) setCarregando(false);
+      });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
+  // Sincroniza o status do veículo com agendamentos em_andamento.
+  // Manutenção/indisponível são preservados (status manuais).
+  // (TODO Fase 2c: mover para um trigger no banco — assim não depende de
+  // ter o app aberto e não há corrida entre abas/usuários.)
   useEffect(() => {
-    if (!hidratado) return;
-    gravarLocal(agendamentos);
-  }, [agendamentos, hidratado]);
-
-  // Sincroniza status do veículo com agendamentos em_andamento.
-  // Manutenção/indisponivel são preservados (status manuais).
-  useEffect(() => {
-    if (!hidratado) return;
+    if (carregando) return;
     const emUsoIds = new Set(
       agendamentos
         .filter((a) => a.status === "em_andamento")
@@ -140,25 +74,23 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
         salvarVeiculo({ ...v, status: "disponivel" });
       }
     }
-  }, [agendamentos, veiculos, hidratado, salvarVeiculo]);
+  }, [agendamentos, veiculos, carregando, salvarVeiculo]);
 
   const buscarPorId = useCallback(
     (id: string) => agendamentos.find((a) => a.id === id),
     [agendamentos],
   );
 
-  const criar = useCallback(
-    (a: Omit<Agendamento, "id" | "criadoEm">) => {
-      const novo: Agendamento = {
-        ...a,
-        id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        criadoEm: new Date().toISOString(),
-      };
-      setAgendamentos((atual) => [...atual, novo]);
-      return novo;
-    },
-    [],
-  );
+  const criar = useCallback((a: Omit<Agendamento, "id" | "criadoEm">) => {
+    const novo: Agendamento = {
+      ...a,
+      id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      criadoEm: new Date().toISOString(),
+    };
+    setAgendamentos((atual) => [...atual, novo]);
+    persistir(novo);
+    return novo;
+  }, []);
 
   const salvar = useCallback((a: Agendamento) => {
     setAgendamentos((atual) => {
@@ -166,28 +98,40 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
       if (idx === -1) return [...atual, a];
       return atual.map((x, i) => (i === idx ? a : x));
     });
+    persistir(a);
   }, []);
 
-  const alterarStatus = useCallback((id: string, novo: StatusAgendamento) => {
-    setAgendamentos((atual) =>
-      atual.map((a) => (a.id === id ? { ...a, status: novo } : a)),
-    );
-  }, []);
+  const alterarStatus = useCallback(
+    (id: string, novo: StatusAgendamento) => {
+      setAgendamentos((atual) => {
+        const idx = atual.findIndex((a) => a.id === id);
+        if (idx === -1) return atual;
+        const atualizado = { ...atual[idx], status: novo };
+        persistir(atualizado);
+        return atual.map((a, i) => (i === idx ? atualizado : a));
+      });
+    },
+    [],
+  );
 
   const remover = useCallback((id: string) => {
     setAgendamentos((atual) => atual.filter((a) => a.id !== id));
+    removerAgendamento(id).catch((e) =>
+      console.error("Falha ao remover agendamento", e),
+    );
   }, []);
 
   const value = useMemo<AgendamentosContextValue>(
     () => ({
       agendamentos,
+      carregando,
       buscarPorId,
       criar,
       salvar,
       alterarStatus,
       remover,
     }),
-    [agendamentos, buscarPorId, criar, salvar, alterarStatus, remover],
+    [agendamentos, carregando, buscarPorId, criar, salvar, alterarStatus, remover],
   );
 
   return (

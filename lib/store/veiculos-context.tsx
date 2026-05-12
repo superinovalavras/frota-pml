@@ -9,60 +9,40 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { veiculos as seed } from "@/lib/mock/veiculos";
-import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
 import type { Veiculo } from "@/lib/mock/types";
-
-const STORAGE_KEY = "frota-veiculos-v1";
+import {
+  listarVeiculos,
+  removerVeiculo,
+  upsertVeiculo,
+} from "@/lib/data/frota";
 
 interface VeiculosContextValue {
   veiculos: Veiculo[];
+  carregando: boolean;
   salvar: (v: Veiculo) => void;
   remover: (id: string) => void;
-  resetSeed: () => void;
 }
 
 const VeiculosContext = createContext<VeiculosContextValue | null>(null);
 
-function lerLocal(): Veiculo[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Veiculo[];
-    if (!Array.isArray(parsed)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function gravarLocal(v: Veiculo[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
-  } catch (e) {
-    console.error("Falha ao gravar veículos no localStorage", e);
-    notificarArmazenamentoCheio();
-  }
-}
-
 export function VeiculosProvider({ children }: { children: ReactNode }) {
-  const [veiculos, setVeiculos] = useState<Veiculo[]>(seed);
-  const [hidratado, setHidratado] = useState(false);
+  const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
+  const [carregando, setCarregando] = useState(true);
 
-  // Hidratar do localStorage no mount (evita mismatch de SSR)
   useEffect(() => {
-    const local = lerLocal();
-    if (local) setVeiculos(local);
-    setHidratado(true);
+    let vivo = true;
+    listarVeiculos()
+      .then((lista) => {
+        if (vivo) setVeiculos(lista);
+      })
+      .catch((e) => console.error("Falha ao carregar veículos", e))
+      .finally(() => {
+        if (vivo) setCarregando(false);
+      });
+    return () => {
+      vivo = false;
+    };
   }, []);
-
-  // Persistir em toda mudança após hidratação
-  useEffect(() => {
-    if (!hidratado) return;
-    gravarLocal(veiculos);
-  }, [veiculos, hidratado]);
 
   const salvar = useCallback((v: Veiculo) => {
     setVeiculos((atual) => {
@@ -72,19 +52,17 @@ export function VeiculosProvider({ children }: { children: ReactNode }) {
       copia[idx] = v;
       return copia;
     });
+    upsertVeiculo(v).catch((e) => console.error("Falha ao salvar veículo", e));
   }, []);
 
   const remover = useCallback((id: string) => {
     setVeiculos((atual) => atual.filter((v) => v.id !== id));
-  }, []);
-
-  const resetSeed = useCallback(() => {
-    setVeiculos(seed);
+    removerVeiculo(id).catch((e) => console.error("Falha ao remover veículo", e));
   }, []);
 
   const value = useMemo(
-    () => ({ veiculos, salvar, remover, resetSeed }),
-    [veiculos, salvar, remover, resetSeed],
+    () => ({ veiculos, carregando, salvar, remover }),
+    [veiculos, carregando, salvar, remover],
   );
 
   return (

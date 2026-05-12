@@ -9,15 +9,17 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { usuarios as seed } from "@/lib/mock/usuarios";
-import { notificarArmazenamentoCheio } from "@/lib/storage-aviso";
 import type { Usuario } from "@/lib/mock/types";
+import {
+  listarUsuarios,
+  removerUsuario,
+  upsertUsuario,
+} from "@/lib/data/frota";
 import { useFuncoes } from "./funcoes-context";
-
-const STORAGE_KEY = "frota-usuarios-v1";
 
 interface UsuariosContextValue {
   usuarios: Usuario[];
+  carregando: boolean;
   buscarPorId: (id: string) => Usuario | undefined;
   /**
    * Salva (cria ou atualiza) um usuário. Os campos `perfil` e `hierarquia`
@@ -31,66 +33,44 @@ interface UsuariosContextValue {
 
 const UsuariosContext = createContext<UsuariosContextValue | null>(null);
 
-function lerLocal(): Usuario[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Usuario[];
-    if (!Array.isArray(parsed)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function gravarLocal(v: Usuario[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
-  } catch (e) {
-    console.error("Falha ao gravar usuarios no localStorage", e);
-    notificarArmazenamentoCheio();
-  }
-}
-
 export function UsuariosProvider({ children }: { children: ReactNode }) {
   const { funcoes } = useFuncoes();
-  const [usuarios, setUsuarios] = useState<Usuario[]>(seed);
-  const [hidratado, setHidratado] = useState(false);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    const local = lerLocal();
-    if (local) setUsuarios(local);
-    setHidratado(true);
+    let vivo = true;
+    listarUsuarios()
+      .then((lista) => {
+        if (vivo) setUsuarios(lista);
+      })
+      .catch((e) => console.error("Falha ao carregar usuários", e))
+      .finally(() => {
+        if (vivo) setCarregando(false);
+      });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
-  // Sincroniza os campos derivados (perfil, hierarquia) sempre que as funções
-  // mudarem — assim, se o admin renomear/mover uma função, os usuários
-  // afetados refletem automaticamente.
+  // Sincroniza os campos derivados (perfil, hierarquia) quando as funções
+  // mudarem — só no estado local. (TODO Fase 2b: refletir no banco via trigger,
+  // ou eliminar a denormalização e derivar na leitura.)
   useEffect(() => {
-    if (!hidratado) return;
     setUsuarios((atual) => {
       let mudou = false;
       const sincronizado = atual.map((u) => {
         const f = funcoes.find((x) => x.id === u.funcaoId);
         if (!f) return u;
-        const novoPerfil = f.nivelAcesso;
-        const novaHierarquia = f.hierarquia;
-        if (u.perfil !== novoPerfil || u.hierarquia !== novaHierarquia) {
+        if (u.perfil !== f.nivelAcesso || u.hierarquia !== f.hierarquia) {
           mudou = true;
-          return { ...u, perfil: novoPerfil, hierarquia: novaHierarquia };
+          return { ...u, perfil: f.nivelAcesso, hierarquia: f.hierarquia };
         }
         return u;
       });
       return mudou ? sincronizado : atual;
     });
-  }, [funcoes, hidratado]);
-
-  useEffect(() => {
-    if (!hidratado) return;
-    gravarLocal(usuarios);
-  }, [usuarios, hidratado]);
+  }, [funcoes]);
 
   const buscarPorId = useCallback(
     (id: string) => usuarios.find((u) => u.id === id),
@@ -99,21 +79,25 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
 
   const salvar = useCallback(
     (u: Usuario) => {
+      const f = funcoes.find((x) => x.id === u.funcaoId);
+      const sincronizado: Usuario = f
+        ? { ...u, perfil: f.nivelAcesso, hierarquia: f.hierarquia }
+        : u;
       setUsuarios((atual) => {
-        const f = funcoes.find((x) => x.id === u.funcaoId);
-        const sincronizado: Usuario = f
-          ? { ...u, perfil: f.nivelAcesso, hierarquia: f.hierarquia }
-          : u;
         const idx = atual.findIndex((x) => x.id === u.id);
         if (idx === -1) return [...atual, sincronizado];
         return atual.map((x, i) => (i === idx ? sincronizado : x));
       });
+      upsertUsuario(sincronizado).catch((e) =>
+        console.error("Falha ao salvar usuário", e),
+      );
     },
     [funcoes],
   );
 
   const remover = useCallback((id: string) => {
     setUsuarios((atual) => atual.filter((u) => u.id !== id));
+    removerUsuario(id).catch((e) => console.error("Falha ao remover usuário", e));
   }, []);
 
   const motoristasDisponiveis = useMemo(() => {
@@ -126,16 +110,19 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
   const value = useMemo<UsuariosContextValue>(
     () => ({
       usuarios,
+      carregando,
       buscarPorId,
       salvar,
       remover,
       motoristasDisponiveis,
     }),
-    [usuarios, buscarPorId, salvar, remover, motoristasDisponiveis],
+    [usuarios, carregando, buscarPorId, salvar, remover, motoristasDisponiveis],
   );
 
   return (
-    <UsuariosContext.Provider value={value}>{children}</UsuariosContext.Provider>
+    <UsuariosContext.Provider value={value}>
+      {children}
+    </UsuariosContext.Provider>
   );
 }
 
