@@ -9,7 +9,7 @@ import { useOrgaos } from "@/lib/store/orgaos-context";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useVeiculos } from "@/lib/store/veiculos-context";
 import { useConfirmacao } from "@/components/confirmacao-provider";
-import { superintendencias } from "@/lib/mock/superintendencias";
+import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import { OrgaoForm } from "./orgao-form";
 import type { Secretaria } from "@/lib/mock/types";
 
@@ -17,6 +17,7 @@ export function OrgaosTab() {
   const { orgaos, remover } = useOrgaos();
   const { usuarios } = useUsuarios();
   const { veiculos } = useVeiculos();
+  const { porSecretaria: superintendenciasPorSecretaria } = useSuperintendencias();
   const { confirmar, avisar } = useConfirmacao();
   const [editando, setEditando] = useState<Secretaria | null>(null);
   const [criando, setCriando] = useState(false);
@@ -24,9 +25,7 @@ export function OrgaosTab() {
   async function tentarRemover(o: Secretaria) {
     const qtdUsuarios = usuarios.filter((u) => u.secretariaId === o.id).length;
     const qtdVeiculos = veiculos.filter((v) => v.secretariaId === o.id).length;
-    const qtdSupers = superintendencias.filter(
-      (s) => s.secretariaId === o.id,
-    ).length;
+    const qtdSupers = superintendenciasPorSecretaria(o.id).length;
     const total = qtdUsuarios + qtdVeiculos + qtdSupers;
     if (total > 0) {
       await avisar({

@@ -9,9 +9,9 @@ import {
   useState,
 } from "react";
 import type { ReactNode } from "react";
-import { superintendencias } from "@/lib/mock/superintendencias";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useOrgaos } from "@/lib/store/orgaos-context";
+import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import { useFuncoes } from "@/lib/store/funcoes-context";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import type {
@@ -74,6 +74,7 @@ function gravarUsuarioAtivoLocal(id: string) {
 export function PerfilProvider({ children }: { children: ReactNode }) {
   const { usuarios } = useUsuarios();
   const { orgaos } = useOrgaos();
+  const { superintendencias } = useSuperintendencias();
   const { funcoes } = useFuncoes();
 
   const [usuarioId, setUsuarioIdState] = useState<string | null>(null);
@@ -142,7 +143,16 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
       logado: !!authUserId,
       sair,
     };
-  }, [usuarioId, usuarios, orgaos, funcoes, authUserId, setUsuarioId, sair]);
+  }, [
+    usuarioId,
+    usuarios,
+    orgaos,
+    superintendencias,
+    funcoes,
+    authUserId,
+    setUsuarioId,
+    sair,
+  ]);
 
   return (
     <PerfilContext.Provider value={value}>{children}</PerfilContext.Provider>

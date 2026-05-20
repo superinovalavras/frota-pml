@@ -28,7 +28,7 @@ import { useOrgaos } from "@/lib/store/orgaos-context";
 import { CATEGORIAS_CNH } from "@/lib/formatters";
 import { lerArquivoComoDataUrl } from "@/lib/imagem";
 import { RecortadorFoto } from "@/components/recortador-foto";
-import { superintendencias } from "@/lib/mock/superintendencias";
+import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import { USUARIO_MASTER_ID } from "@/lib/mock/usuarios";
 import type { CategoriaCNH, Usuario } from "@/lib/mock/types";
 
@@ -44,6 +44,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
   const { funcoesOrdenadas, buscarPorId: buscarFuncao } = useFuncoes();
   const { salvar, usuarios: todosUsuarios } = useUsuarios();
   const { orgaos } = useOrgaos();
+  const { porSecretaria: superintendenciasPorSecretaria } = useSuperintendencias();
   const editando = usuario !== null;
   const ehMaster = usuario?.id === USUARIO_MASTER_ID;
   const inputFotoRef = useRef<HTMLInputElement>(null);
@@ -131,9 +132,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
     .toUpperCase();
 
   const funcaoSelecionada = buscarFuncao(funcaoId);
-  const supDoOrgao = superintendencias.filter(
-    (s) => s.secretariaId === secretariaId,
-  );
+  const supDoOrgao = superintendenciasPorSecretaria(secretariaId);
 
   // Se trocar de órgão e a superintendência atual não pertencer mais ao órgão,
   // limpa para evitar registro órfão.

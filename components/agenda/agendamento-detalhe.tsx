@@ -27,7 +27,7 @@ import {
   rotuloAcaoStatus,
   formatDuracao,
 } from "@/lib/agendamento-utils";
-import { superintendencias } from "@/lib/mock/superintendencias";
+import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import type { Agendamento, StatusAgendamento } from "@/lib/mock/types";
 import {
   CheckInOutDialog,
@@ -76,6 +76,7 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
   const { veiculos } = useVeiculos();
   const { buscarPorId: buscarUsuario } = useUsuarios();
   const { buscarPorId: buscarOrgao } = useOrgaos();
+  const { buscarPorId: buscarSuperintendencia } = useSuperintendencias();
   const { alterarStatus, remover } = useAgendamentos();
   const { usuario: usuarioAtual } = usePerfil();
   const { confirmar } = useConfirmacao();
@@ -91,9 +92,7 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
   const orgao = solicitante ? buscarOrgao(solicitante.secretariaId) : null;
   const superintendencia =
     solicitante && solicitante.superintendenciaId
-      ? superintendencias.find(
-          (s) => s.id === solicitante.superintendenciaId,
-        ) ?? null
+      ? buscarSuperintendencia(solicitante.superintendenciaId) ?? null
       : null;
 
   const inicio = new Date(agendamento.inicio);

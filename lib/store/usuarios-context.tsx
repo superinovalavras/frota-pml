@@ -29,6 +29,8 @@ interface UsuariosContextValue {
   remover: (id: string) => void;
   /** Lista de usuários que estão no pool de motoristas (função.ehMotorista) */
   motoristasDisponiveis: Usuario[];
+  /** Re-busca a lista do banco — útil após mutações server-side (ex.: /perfil). */
+  recarregar: () => Promise<void>;
 }
 
 const UsuariosContext = createContext<UsuariosContextValue | null>(null);
@@ -100,6 +102,15 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
     removerUsuario(id).catch((e) => console.error("Falha ao remover usuário", e));
   }, []);
 
+  const recarregar = useCallback(async () => {
+    try {
+      const lista = await listarUsuarios();
+      setUsuarios(lista);
+    } catch (e) {
+      console.error("Falha ao recarregar usuários", e);
+    }
+  }, []);
+
   const motoristasDisponiveis = useMemo(() => {
     const idsMotorista = new Set(
       funcoes.filter((f) => f.ehMotorista).map((f) => f.id),
@@ -115,8 +126,17 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
       salvar,
       remover,
       motoristasDisponiveis,
+      recarregar,
     }),
-    [usuarios, carregando, buscarPorId, salvar, remover, motoristasDisponiveis],
+    [
+      usuarios,
+      carregando,
+      buscarPorId,
+      salvar,
+      remover,
+      motoristasDisponiveis,
+      recarregar,
+    ],
   );
 
   return (

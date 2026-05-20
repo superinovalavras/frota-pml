@@ -3,6 +3,7 @@ import { Outfit, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { FuncoesProvider } from "@/lib/store/funcoes-context";
 import { OrgaosProvider } from "@/lib/store/orgaos-context";
+import { SuperintendenciasProvider } from "@/lib/store/superintendencias-context";
 import { UsuariosProvider } from "@/lib/store/usuarios-context";
 import { PerfilProvider } from "@/lib/perfil-context";
 import { BrandingProvider } from "@/lib/store/branding-context";
@@ -38,9 +39,11 @@ export default function RootLayout({
         <BrandingProvider>
           <FuncoesProvider>
             <OrgaosProvider>
-              <UsuariosProvider>
-                <PerfilProvider>{children}</PerfilProvider>
-              </UsuariosProvider>
+              <SuperintendenciasProvider>
+                <UsuariosProvider>
+                  <PerfilProvider>{children}</PerfilProvider>
+                </UsuariosProvider>
+              </SuperintendenciasProvider>
             </OrgaosProvider>
           </FuncoesProvider>
         </BrandingProvider>

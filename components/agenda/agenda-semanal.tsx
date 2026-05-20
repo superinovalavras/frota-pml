@@ -26,7 +26,7 @@ import { usePerfil } from "@/lib/perfil-context";
 import { useVeiculos } from "@/lib/store/veiculos-context";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useAgendamentos } from "@/lib/store/agendamentos-context";
-import { superintendencias } from "@/lib/mock/superintendencias";
+import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import { filtrarVeiculosVisiveis } from "@/lib/visibilidade";
 import {
   formatHora,
@@ -695,6 +695,7 @@ function FiltroVeiculo({
   valor: string;
   onChange: (v: string) => void;
 }) {
+  const { buscarPorId: buscarSuperintendencia } = useSuperintendencias();
   return (
     <select
       value={valor}
@@ -704,7 +705,7 @@ function FiltroVeiculo({
       <option value="todos">Todos os veículos visíveis</option>
       {veiculos.map((v) => {
         const lotacao = v.superintendenciaId
-          ? superintendencias.find((s) => s.id === v.superintendenciaId)?.sigla
+          ? buscarSuperintendencia(v.superintendenciaId)?.sigla
           : "Frota geral";
         return (
           <option key={v.id} value={v.id}>

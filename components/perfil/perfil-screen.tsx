@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   IdCard,
   Mail,
@@ -12,15 +12,18 @@ import {
   AlertTriangle,
   Calendar,
   Car,
+  Pencil,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { usePerfil } from "@/lib/perfil-context";
 import { useAgendamentos } from "@/lib/store/agendamentos-context";
 import { useVeiculos } from "@/lib/store/veiculos-context";
-import { superintendencias } from "@/lib/mock/superintendencias";
+import { useSuperintendencias } from "@/lib/store/superintendencias-context";
+import { EditarPerfilDialog } from "./editar-perfil-dialog";
 import {
   formatHora,
   formatDataCurta,
@@ -32,12 +35,14 @@ import { temCnhValida } from "@/lib/agendamento-utils";
 import { StatusBadge } from "@/components/agenda/status-badge";
 
 export function PerfilScreen() {
-  const { usuario, funcao, secretaria } = usePerfil();
+  const { usuario, funcao, secretaria, logado } = usePerfil();
   const { agendamentos } = useAgendamentos();
   const { veiculos } = useVeiculos();
+  const { buscarPorId: buscarSuperintendencia } = useSuperintendencias();
+  const [editando, setEditando] = useState(false);
 
   const sup = usuario.superintendenciaId
-    ? superintendencias.find((s) => s.id === usuario.superintendenciaId)
+    ? buscarSuperintendencia(usuario.superintendenciaId)
     : null;
 
   const minhas = useMemo(
@@ -68,11 +73,23 @@ export function PerfilScreen() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-semibold">Meu perfil</h1>
-        <p className="text-sm text-muted-foreground">
-          Suas informações de cadastro e habilitação na frota.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Meu perfil</h1>
+          <p className="text-sm text-muted-foreground">
+            Suas informações de cadastro e habilitação na frota.
+          </p>
+        </div>
+        {logado && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditando(true)}
+          >
+            <Pencil className="size-4" />
+            Editar
+          </Button>
+        )}
       </div>
 
       <Card className="p-0 overflow-hidden">
@@ -270,6 +287,12 @@ export function PerfilScreen() {
           )}
         </CardContent>
       </Card>
+
+      <EditarPerfilDialog
+        aberto={editando}
+        usuario={usuario}
+        onClose={() => setEditando(false)}
+      />
     </div>
   );
 }

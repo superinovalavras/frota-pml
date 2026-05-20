@@ -4,7 +4,7 @@ import { usePerfil } from "@/lib/perfil-context";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useFuncoes } from "@/lib/store/funcoes-context";
 import { useOrgaos } from "@/lib/store/orgaos-context";
-import { superintendencias } from "@/lib/mock/superintendencias";
+import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import {
   Select,
   SelectContent,
@@ -18,6 +18,7 @@ export function SeletorPerfil() {
   const { usuarios } = useUsuarios();
   const { buscarPorId: buscarFuncao } = useFuncoes();
   const { orgaos } = useOrgaos();
+  const { buscarPorId: buscarSuperintendencia } = useSuperintendencias();
 
   return (
     <div className="flex items-center gap-2 min-w-0">
@@ -32,7 +33,7 @@ export function SeletorPerfil() {
           {usuarios.map((u) => {
             const sec = orgaos.find((s) => s.id === u.secretariaId);
             const sup = u.superintendenciaId
-              ? superintendencias.find((s) => s.id === u.superintendenciaId)
+              ? buscarSuperintendencia(u.superintendenciaId)
               : null;
             const lotacao = sup ? sup.sigla : sec?.sigla ?? "—";
             const funcao = buscarFuncao(u.funcaoId);
