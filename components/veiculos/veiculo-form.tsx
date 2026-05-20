@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, Loader2, Trash2, X } from "lucide-react";
+import { AlertTriangle, Camera, Loader2, Trash2, Wrench, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,9 @@ import { useVeiculos } from "@/lib/store/veiculos-context";
 import { lerArquivoComoDataUrl } from "@/lib/imagem";
 import { usePerfil } from "@/lib/perfil-context";
 import { RecortadorFoto } from "@/components/recortador-foto";
-import type { Veiculo } from "@/lib/mock/types";
+import { ManutencaoForm } from "./manutencao-form";
+import { buscarManutencaoAtiva } from "@/lib/data/manutencoes";
+import type { Manutencao, Veiculo } from "@/lib/mock/types";
 
 interface Props {
   veiculo: Veiculo | null;
@@ -29,8 +31,14 @@ interface Props {
 export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const aberto = modo !== null;
   const { salvar, remover, veiculos } = useVeiculos();
-  const { secretaria } = usePerfil();
+  const { secretaria, usuario } = usePerfil();
   const inputFotoRef = useRef<HTMLInputElement>(null);
+
+  const podeGerenciarManutencao =
+    modo === "editar" &&
+    !!veiculo &&
+    (usuario.perfil === "master" ||
+      (usuario.perfil === "gestor" && veiculo.secretariaId === usuario.secretariaId));
 
   const [nome, setNome] = useState("");
   const [placa, setPlaca] = useState("");
@@ -42,6 +50,8 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   );
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [manutAberta, setManutAberta] = useState(false);
+  const [manutAtiva, setManutAtiva] = useState<Manutencao | null>(null);
 
   // Resetar campos ao abrir
   useEffect(() => {
@@ -63,6 +73,26 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
     setImagemParaRecortar(null);
     setConfirmarExclusao(false);
     setErro(null);
+    setManutAberta(false);
+    setManutAtiva(null);
+  }, [aberto, modo, veiculo]);
+
+  // Busca a manutenção ativa quando o veículo está marcado como "manutencao"
+  useEffect(() => {
+    if (!aberto || modo !== "editar" || !veiculo) return;
+    if (veiculo.status !== "manutencao") {
+      setManutAtiva(null);
+      return;
+    }
+    let vivo = true;
+    buscarManutencaoAtiva(veiculo.id)
+      .then((m) => {
+        if (vivo) setManutAtiva(m);
+      })
+      .catch((e) => console.error("Falha ao buscar manutenção ativa", e));
+    return () => {
+      vivo = false;
+    };
   }, [aberto, modo, veiculo]);
 
   async function aoSelecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -279,16 +309,31 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
                 </Button>
               </div>
             ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => setConfirmarExclusao(true)}
-              >
-                <Trash2 className="size-4" />
-                Excluir
-              </Button>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setConfirmarExclusao(true)}
+                >
+                  <Trash2 className="size-4" />
+                  Excluir
+                </Button>
+                {podeGerenciarManutencao && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setManutAberta(true)}
+                  >
+                    <Wrench className="size-4" />
+                    {veiculo?.status === "manutencao"
+                      ? "Encerrar manutenção"
+                      : "Manutenção"}
+                  </Button>
+                )}
+              </div>
             )
           ) : (
             <span />
@@ -318,6 +363,20 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       }}
       onCancelar={() => setImagemParaRecortar(null)}
     />
+
+    {modo === "editar" && veiculo && (
+      <ManutencaoForm
+        veiculo={veiculo}
+        aberto={manutAberta}
+        manutencaoAtiva={manutAtiva}
+        onClose={() => setManutAberta(false)}
+        onSucesso={() => {
+          setManutAberta(false);
+          setManutAtiva(null);
+          onClose();
+        }}
+      />
+    )}
     </>
   );
 }

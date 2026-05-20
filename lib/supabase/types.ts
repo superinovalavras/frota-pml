@@ -93,6 +93,43 @@ type ConfiguracaoRow = {
   atualizado_em: string;
 };
 
+type ManutencaoRow = {
+  id: string;
+  veiculo_id: string;
+  motivo: string;
+  previsao_retorno: string; // date 'YYYY-MM-DD'
+  criado_por: string | null;
+  criado_em: string;
+  encerrado_em: string | null;
+};
+
+export type EmailEventoTipoDb =
+  | "manutencao_veiculo"
+  | "agendamento_cancelado"
+  | "passageiro_adicionado"
+  | "passageiro_removido";
+
+export type EmailStatusDb = "pendente" | "enviado" | "falhou";
+
+type EmailOutboxRow = {
+  id: string;
+  tipo_evento: EmailEventoTipoDb;
+  destinatario_email: string;
+  destinatario_nome: string;
+  destinatario_profile_id: string | null;
+  assunto: string;
+  payload: unknown;
+  corpo_html: string | null;
+  corpo_texto: string | null;
+  status: EmailStatusDb;
+  tentativas: number;
+  erro_ultimo: string | null;
+  agendamento_id: string | null;
+  veiculo_id: string | null;
+  criado_em: string;
+  enviado_em: string | null;
+};
+
 type AgendamentoRow = {
   id: string;
   veiculo_id: string;
@@ -136,6 +173,8 @@ export type Database = {
       veiculos: TableShape<VeiculoRow>;
       agendamentos: TableShape<AgendamentoRow>;
       configuracoes: TableShape<ConfiguracaoRow>;
+      manutencoes: TableShape<ManutencaoRow>;
+      email_outbox: TableShape<EmailOutboxRow>;
     };
     Views: { [_ in never]: never };
     Functions: {

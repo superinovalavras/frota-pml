@@ -123,6 +123,57 @@ export type Passageiro =
   | { tipo: "usuario"; usuarioId: string }
   | { tipo: "convidado"; nome: string; motivo?: string };
 
+/**
+ * Janela de manutenção de um veículo — registro auditável.
+ * Enquanto `encerradoEm` for null, a manutenção está ATIVA e o veículo
+ * deve estar com status "manutencao".
+ */
+export interface Manutencao {
+  id: string;
+  veiculoId: string;
+  motivo: string;
+  /** Data prevista para retorno (YYYY-MM-DD). A manutenção é considerada
+   *  ativa até o fim deste dia. */
+  previsaoRetorno: string;
+  /** Profile do master/gestor que registrou a manutenção. */
+  criadoPor: string | null;
+  criadoEm: string;
+  /** Preenchido quando a manutenção é encerrada (veículo volta a "disponivel"). */
+  encerradoEm?: string;
+}
+
+export type EmailEventoTipo =
+  | "manutencao_veiculo"
+  | "agendamento_cancelado"
+  | "passageiro_adicionado"
+  | "passageiro_removido";
+
+export type EmailStatus = "pendente" | "enviado" | "falhou";
+
+/**
+ * Item da fila de notificações por email. Cada linha = um destinatário.
+ * `payload` guarda o snapshot dos dados do evento (assim o email reflete
+ * o estado no momento em que ocorreu, mesmo que registros sejam alterados).
+ */
+export interface EmailOutbox {
+  id: string;
+  tipoEvento: EmailEventoTipo;
+  destinatarioEmail: string;
+  destinatarioNome: string;
+  destinatarioProfileId?: string | null;
+  assunto: string;
+  payload: Record<string, unknown>;
+  corpoHtml?: string | null;
+  corpoTexto?: string | null;
+  status: EmailStatus;
+  tentativas: number;
+  erroUltimo?: string | null;
+  agendamentoId?: string | null;
+  veiculoId?: string | null;
+  criadoEm: string;
+  enviadoEm?: string | null;
+}
+
 export interface Agendamento {
   id: string;
   veiculoId: string;

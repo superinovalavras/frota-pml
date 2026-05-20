@@ -5,7 +5,11 @@
 import type {
   Agendamento,
   CategoriaCNH,
+  EmailEventoTipo,
+  EmailOutbox,
+  EmailStatus,
   Funcao,
+  Manutencao,
   NivelAcesso,
   Passageiro,
   Perfil,
@@ -182,6 +186,60 @@ export function veiculoToRow(v: Veiculo): Tables["veiculos"]["Insert"] {
     km_atual: v.kmAtual,
     observacoes: orNull(v.observacoes),
     foto_url: orNull(v.fotoUrl),
+  };
+}
+
+// ---------------------------------------------------------------------
+// Manutenções
+// ---------------------------------------------------------------------
+export function manutencaoFromRow(
+  r: Tables["manutencoes"]["Row"],
+): Manutencao {
+  return {
+    id: r.id,
+    veiculoId: r.veiculo_id,
+    motivo: r.motivo,
+    previsaoRetorno: r.previsao_retorno,
+    criadoPor: r.criado_por,
+    criadoEm: r.criado_em,
+    encerradoEm: r.encerrado_em ?? undefined,
+  };
+}
+export function manutencaoToRow(m: Manutencao): Tables["manutencoes"]["Insert"] {
+  return {
+    id: m.id,
+    veiculo_id: m.veiculoId,
+    motivo: m.motivo,
+    previsao_retorno: m.previsaoRetorno,
+    criado_por: m.criadoPor,
+    criado_em: m.criadoEm,
+    encerrado_em: orNull(m.encerradoEm),
+  };
+}
+
+// ---------------------------------------------------------------------
+// Email outbox
+// ---------------------------------------------------------------------
+export function emailOutboxFromRow(
+  r: Tables["email_outbox"]["Row"],
+): EmailOutbox {
+  return {
+    id: r.id,
+    tipoEvento: r.tipo_evento as EmailEventoTipo,
+    destinatarioEmail: r.destinatario_email,
+    destinatarioNome: r.destinatario_nome ?? "",
+    destinatarioProfileId: r.destinatario_profile_id,
+    assunto: r.assunto ?? "",
+    payload: (r.payload ?? {}) as Record<string, unknown>,
+    corpoHtml: r.corpo_html,
+    corpoTexto: r.corpo_texto,
+    status: r.status as EmailStatus,
+    tentativas: r.tentativas,
+    erroUltimo: r.erro_ultimo,
+    agendamentoId: r.agendamento_id,
+    veiculoId: r.veiculo_id,
+    criadoEm: r.criado_em,
+    enviadoEm: r.enviado_em,
   };
 }
 

@@ -21,6 +21,9 @@ interface VeiculosContextValue {
   carregando: boolean;
   salvar: (v: Veiculo) => void;
   remover: (id: string) => void;
+  /** Re-busca a lista do banco — útil após operações server-side
+   *  (ex.: rota /api/manutencao) que alteram dados sem passar pelo `salvar`. */
+  recarregar: () => Promise<void>;
 }
 
 const VeiculosContext = createContext<VeiculosContextValue | null>(null);
@@ -60,9 +63,18 @@ export function VeiculosProvider({ children }: { children: ReactNode }) {
     removerVeiculo(id).catch((e) => console.error("Falha ao remover veículo", e));
   }, []);
 
+  const recarregar = useCallback(async () => {
+    try {
+      const lista = await listarVeiculos();
+      setVeiculos(lista);
+    } catch (e) {
+      console.error("Falha ao recarregar veículos", e);
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ veiculos, carregando, salvar, remover }),
-    [veiculos, carregando, salvar, remover],
+    () => ({ veiculos, carregando, salvar, remover, recarregar }),
+    [veiculos, carregando, salvar, remover, recarregar],
   );
 
   return (
