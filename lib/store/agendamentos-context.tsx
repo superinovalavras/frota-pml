@@ -21,18 +21,48 @@ interface AgendamentosContextValue {
   agendamentos: Agendamento[];
   carregando: boolean;
   buscarPorId: (id: string) => Agendamento | undefined;
-  criar: (a: Omit<Agendamento, "id" | "criadoEm">) => Agendamento;
-  salvar: (a: Agendamento) => void;
+  /**
+   * Cria uma nova reserva. Resolve quando a persistência no Supabase
+   * terminou — útil para quem precisa do id em chamadas subsequentes
+   * (ex.: notificar passageiros).
+   */
+  criar: (a: Omit<Agendamento, "id" | "criadoEm">) => Promise<Agendamento>;
+  /** Atualiza uma reserva. Resolve quando o write terminou. */
+  salvar: (a: Agendamento) => Promise<void>;
   alterarStatus: (id: string, novo: StatusAgendamento) => void;
+  /**
+   * Cancela uma reserva via server (que enfileira emails para envolvidos).
+   * Use no lugar de `alterarStatus(id, "cancelado")` quando quiser informar
+   * um motivo — `alterarStatus` com "cancelado" delega para este método
+   * automaticamente, sem motivo.
+   */
+  cancelar: (id: string, motivo?: string) => Promise<void>;
   remover: (id: string) => void;
+  /** Re-busca a lista do banco — útil após mutações server-side
+   *  (ex.: cancelamento em massa em /api/manutencao). */
+  recarregar: () => Promise<void>;
 }
 
 const AgendamentosContext = createContext<AgendamentosContextValue | null>(null);
 
-function persistir(a: Agendamento) {
-  upsertAgendamento(a).catch((e) =>
-    console.error("Falha ao salvar agendamento", e),
-  );
+async function persistir(a: Agendamento): Promise<void> {
+  try {
+    await upsertAgendamento(a);
+  } catch (e) {
+    console.error("Falha ao salvar agendamento", e);
+  }
+}
+
+async function cancelarNoServidor(id: string, motivo?: string): Promise<void> {
+  const resp = await fetch("/api/agendamento/cancelar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, motivo }),
+  });
+  if (!resp.ok) {
+    const json = (await resp.json().catch(() => ({}))) as { erro?: string };
+    throw new Error(json.erro ?? `HTTP ${resp.status}`);
+  }
 }
 
 export function AgendamentosProvider({ children }: { children: ReactNode }) {
@@ -81,28 +111,65 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
     [agendamentos],
   );
 
-  const criar = useCallback((a: Omit<Agendamento, "id" | "criadoEm">) => {
-    const novo: Agendamento = {
-      ...a,
-      id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      criadoEm: new Date().toISOString(),
-    };
-    setAgendamentos((atual) => [...atual, novo]);
-    persistir(novo);
-    return novo;
-  }, []);
+  const criar = useCallback(
+    async (a: Omit<Agendamento, "id" | "criadoEm">) => {
+      const novo: Agendamento = {
+        ...a,
+        id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        criadoEm: new Date().toISOString(),
+      };
+      setAgendamentos((atual) => [...atual, novo]);
+      await persistir(novo);
+      return novo;
+    },
+    [],
+  );
 
-  const salvar = useCallback((a: Agendamento) => {
+  const salvar = useCallback(async (a: Agendamento) => {
     setAgendamentos((atual) => {
       const idx = atual.findIndex((x) => x.id === a.id);
       if (idx === -1) return [...atual, a];
       return atual.map((x, i) => (i === idx ? a : x));
     });
-    persistir(a);
+    await persistir(a);
   }, []);
+
+  const recarregar = useCallback(async () => {
+    try {
+      const lista = await listarAgendamentos();
+      setAgendamentos(lista);
+    } catch (e) {
+      console.error("Falha ao recarregar agendamentos", e);
+    }
+  }, []);
+
+  const cancelar = useCallback(
+    async (id: string, motivo?: string) => {
+      // Otimismo: marca como cancelado no estado antes de responder. Se o
+      // servidor recusar, recarrega para reconciliar.
+      setAgendamentos((atual) =>
+        atual.map((a) => (a.id === id ? { ...a, status: "cancelado" } : a)),
+      );
+      try {
+        await cancelarNoServidor(id, motivo);
+      } catch (e) {
+        console.error("Falha ao cancelar reserva", e);
+        await recarregar();
+        throw e;
+      }
+    },
+    [recarregar],
+  );
 
   const alterarStatus = useCallback(
     (id: string, novo: StatusAgendamento) => {
+      // Cancelamento passa pelo servidor (atualiza DB + enfileira emails).
+      if (novo === "cancelado") {
+        cancelar(id).catch(() => {
+          /* já logado em cancelar() */
+        });
+        return;
+      }
       setAgendamentos((atual) => {
         const idx = atual.findIndex((a) => a.id === id);
         if (idx === -1) return atual;
@@ -111,7 +178,7 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
         return atual.map((a, i) => (i === idx ? atualizado : a));
       });
     },
-    [],
+    [cancelar],
   );
 
   const remover = useCallback((id: string) => {
@@ -129,9 +196,21 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
       criar,
       salvar,
       alterarStatus,
+      cancelar,
       remover,
+      recarregar,
     }),
-    [agendamentos, carregando, buscarPorId, criar, salvar, alterarStatus, remover],
+    [
+      agendamentos,
+      carregando,
+      buscarPorId,
+      criar,
+      salvar,
+      alterarStatus,
+      cancelar,
+      remover,
+      recarregar,
+    ],
   );
 
   return (

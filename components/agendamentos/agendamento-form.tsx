@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Car, MapPin, Mail } from "lucide-react";
+import { AlertTriangle, ArrowUpFromDot, Car, MapPin, Mail, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ import {
   dataIsoDeIso,
   podeDirigirVeiculo,
 } from "@/lib/agendamento-utils";
-import { formatHora } from "@/lib/formatters";
+import { formatHora, formatTelefone } from "@/lib/formatters";
 import type { Agendamento, Passageiro, Veiculo } from "@/lib/mock/types";
 import { PassageirosSection } from "./passageiros-section";
 
@@ -67,7 +67,7 @@ export function AgendamentoForm({
     motoristasDisponiveis,
     buscarPorId: buscarUsuario,
   } = useUsuarios();
-  const { agendamentos, criar, salvar } = useAgendamentos();
+  const { agendamentos, criar, salvar, recarregar: recarregarAgendamentos } = useAgendamentos();
   const { usuario: usuarioAtual } = usePerfil();
 
   const ehGestorOuMaster =
@@ -88,6 +88,7 @@ export function AgendamentoForm({
   const [passageiros, setPassageiros] = useState<Passageiro[]>([]);
   const [observacoes, setObservacoes] = useState<string>("");
   const [erro, setErro] = useState<string | null>(null);
+  const [processando, setProcessando] = useState(false);
 
   useEffect(() => {
     if (!aberto) return;
@@ -187,6 +188,43 @@ export function AgendamentoForm({
     );
   }, [agendamentos, veiculoId, intervalo, agendamento]);
 
+  // Quem é o solicitante da reserva conflitante (para mostrar contato e
+  // calcular hierarquia).
+  const conflitoSolicitante = useMemo(
+    () => (conflito ? buscarUsuario(conflito.solicitanteId) ?? null : null),
+    [conflito, buscarUsuario],
+  );
+
+  // Pode substituir o conflito? (Apenas criação — edição não substitui.)
+  // Regras (espelham o servidor):
+  //  - Master sempre pode.
+  //  - Caso contrário: a nova solicitante precisa ter hierarquia ESTRITAMENTE
+  //    menor (= maior prioridade) que o solicitante existente, e o usuário
+  //    atual precisa ser o próprio novo solicitante OU gestor da secretaria
+  //    do veículo.
+  const podeSubstituir = useMemo(() => {
+    if (editando) return false;
+    if (!conflito || !conflitoSolicitante) return false;
+    if (usuarioAtual.perfil === "master") return true;
+    if (solicitante.hierarquia >= conflitoSolicitante.hierarquia) return false;
+    if (usuarioAtual.id === solicitante.id) return true;
+    if (
+      usuarioAtual.perfil === "gestor" &&
+      veiculo &&
+      veiculo.secretariaId === usuarioAtual.secretariaId
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    editando,
+    conflito,
+    conflitoSolicitante,
+    solicitante,
+    usuarioAtual,
+    veiculo,
+  ]);
+
   const possoMeMesmoDirigir =
     !!veiculo && podeDirigirVeiculo(solicitante, veiculo);
 
@@ -201,59 +239,53 @@ export function AgendamentoForm({
     (p) => p.tipo === "usuario",
   ).length;
 
-  function aoSalvar() {
-    setErro(null);
-    if (!veiculoId) {
-      setErro("Selecione um veículo.");
-      return;
-    }
+  type DadosBase = {
+    solicitanteId: string;
+    veiculoId: string;
+    inicio: string;
+    fim: string;
+    diaTodo: boolean;
+    localPartida: string;
+    localDevolucao: string;
+    destino: string;
+    finalidade: string;
+    motoristaId: string | null;
+    passageiros: Passageiro[];
+    observacoes: string | undefined;
+  };
+
+  function validarECalcular():
+    | { ok: true; dadosBase: DadosBase }
+    | { ok: false; erro: string } {
+    if (!veiculoId) return { ok: false, erro: "Selecione um veículo." };
     if (diaTodo) {
-      if (!data) {
-        setErro("Informe a data.");
-        return;
-      }
+      if (!data) return { ok: false, erro: "Informe a data." };
     } else {
       if (!inicio || !fim) {
-        setErro("Informe o horário de saída e devolução.");
-        return;
+        return { ok: false, erro: "Informe o horário de saída e devolução." };
       }
       if (new Date(intervalo.inicio) >= new Date(intervalo.fim)) {
-        setErro("A devolução deve ser posterior à saída.");
-        return;
+        return { ok: false, erro: "A devolução deve ser posterior à saída." };
       }
     }
-    if (!localPartida.trim()) {
-      setErro("Informe o local de partida.");
-      return;
-    }
-    if (!destino.trim()) {
-      setErro("Informe o destino.");
-      return;
-    }
-    if (!finalidade.trim()) {
-      setErro("Informe a finalidade.");
-      return;
-    }
-    if (conflito) {
-      setErro(
-        `Conflito: este veículo já tem reserva "${conflito.destino}" das ${formatHora(conflito.inicio)} às ${formatHora(conflito.fim)}.`,
-      );
-      return;
-    }
+    if (!localPartida.trim()) return { ok: false, erro: "Informe o local de partida." };
+    if (!destino.trim()) return { ok: false, erro: "Informe o destino." };
+    if (!finalidade.trim()) return { ok: false, erro: "Informe a finalidade." };
+
     let motoristaResolvido: string | null = null;
     if (motoristaId === MOTORISTA_EU) {
       if (!solicitante.cnhCategoria) {
-        setErro(
-          "Solicitante sem CNH cadastrada. Selecione um motorista do pool.",
-        );
-        return;
+        return {
+          ok: false,
+          erro: "Solicitante sem CNH cadastrada. Selecione um motorista do pool.",
+        };
       }
       motoristaResolvido = solicitante.id;
     } else if (motoristaId === SEM_VALOR) {
-      setErro(
-        "Selecione um motorista (sem CNH própria, é necessário designar um motorista).",
-      );
-      return;
+      return {
+        ok: false,
+        erro: "Selecione um motorista (sem CNH própria, é necessário designar um motorista).",
+      };
     } else {
       motoristaResolvido = motoristaId;
     }
@@ -262,35 +294,140 @@ export function AgendamentoForm({
       ? localPartida.trim()
       : localDevolucao.trim() || localPartida.trim();
 
-    const statusInicial = ehGestorOuMaster ? "confirmado" : "pendente";
-
-    const dadosBase = {
-      solicitanteId,
-      veiculoId,
-      inicio: intervalo.inicio,
-      fim: intervalo.fim,
-      diaTodo,
-      localPartida: localPartida.trim(),
-      localDevolucao: localDev,
-      destino: destino.trim(),
-      finalidade: finalidade.trim(),
-      motoristaId: motoristaResolvido,
-      passageiros,
-      observacoes: observacoes.trim() || undefined,
+    return {
+      ok: true,
+      dadosBase: {
+        solicitanteId,
+        veiculoId,
+        inicio: intervalo.inicio,
+        fim: intervalo.fim,
+        diaTodo,
+        localPartida: localPartida.trim(),
+        localDevolucao: localDev,
+        destino: destino.trim(),
+        finalidade: finalidade.trim(),
+        motoristaId: motoristaResolvido,
+        passageiros,
+        observacoes: observacoes.trim() || undefined,
+      },
     };
+  }
 
-    if (editando && agendamento) {
-      salvar({
-        ...agendamento,
-        ...dadosBase,
-      });
-    } else {
-      criar({
-        ...dadosBase,
-        status: statusInicial,
-      });
+  function diffPassageirosUsuario(
+    antes: Passageiro[],
+    depois: Passageiro[],
+  ): { adicionadosIds: string[]; removidosIds: string[] } {
+    const idsAntes = new Set(
+      antes
+        .filter(
+          (p): p is { tipo: "usuario"; usuarioId: string } =>
+            p.tipo === "usuario",
+        )
+        .map((p) => p.usuarioId),
+    );
+    const idsDepois = new Set(
+      depois
+        .filter(
+          (p): p is { tipo: "usuario"; usuarioId: string } =>
+            p.tipo === "usuario",
+        )
+        .map((p) => p.usuarioId),
+    );
+    return {
+      adicionadosIds: Array.from(idsDepois).filter((id) => !idsAntes.has(id)),
+      removidosIds: Array.from(idsAntes).filter((id) => !idsDepois.has(id)),
+    };
+  }
+
+  function dispararNotificacaoPassageiros(
+    agendamentoId: string,
+    adicionadosIds: string[],
+    removidosIds: string[],
+  ): void {
+    if (adicionadosIds.length === 0 && removidosIds.length === 0) return;
+    fetch("/api/agendamento/notificar-passageiros", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: agendamentoId, adicionadosIds, removidosIds }),
+    }).catch((e) => console.error("Falha ao notificar passageiros", e));
+  }
+
+  async function aoSalvar() {
+    setErro(null);
+    const v = validarECalcular();
+    if (!v.ok) {
+      setErro(v.erro);
+      return;
     }
-    onClose();
+    if (conflito) {
+      setErro(
+        `Conflito: este veículo já tem reserva "${conflito.destino}" das ${formatHora(conflito.inicio)} às ${formatHora(conflito.fim)}.`,
+      );
+      return;
+    }
+
+    const statusInicial = ehGestorOuMaster ? "confirmado" : "pendente";
+    setProcessando(true);
+    try {
+      let agendamentoIdSalvo: string;
+      if (editando && agendamento) {
+        agendamentoIdSalvo = agendamento.id;
+        await salvar({ ...agendamento, ...v.dadosBase });
+      } else {
+        const novo = await criar({ ...v.dadosBase, status: statusInicial });
+        agendamentoIdSalvo = novo.id;
+      }
+
+      const { adicionadosIds, removidosIds } = diffPassageirosUsuario(
+        agendamento?.passageiros ?? [],
+        passageiros,
+      );
+      dispararNotificacaoPassageiros(agendamentoIdSalvo, adicionadosIds, removidosIds);
+
+      onClose();
+    } finally {
+      setProcessando(false);
+    }
+  }
+
+  async function aoSubstituir() {
+    setErro(null);
+    if (!conflito) return;
+    const v = validarECalcular();
+    if (!v.ok) {
+      setErro(v.erro);
+      return;
+    }
+    setProcessando(true);
+    try {
+      const resp = await fetch("/api/agendamento/substituir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ existenteId: conflito.id, novo: v.dadosBase }),
+      });
+      const json = (await resp.json().catch(() => ({}))) as {
+        novoId?: string;
+        erro?: string;
+      };
+      if (!resp.ok) {
+        throw new Error(json.erro ?? `HTTP ${resp.status}`);
+      }
+      await recarregarAgendamentos();
+
+      // Passageiros do novo agendamento entram como "adicionados" no momento da criação.
+      if (json.novoId) {
+        const { adicionadosIds } = diffPassageirosUsuario([], passageiros);
+        dispararNotificacaoPassageiros(json.novoId, adicionadosIds, []);
+      }
+
+      onClose();
+    } catch (e) {
+      setErro(
+        e instanceof Error ? e.message : "Falha ao substituir a reserva.",
+      );
+    } finally {
+      setProcessando(false);
+    }
   }
 
   return (
@@ -424,17 +561,67 @@ export function AgendamentoForm({
           )}
 
           {conflito && (
-            <div className="md:col-span-2 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-              <AlertTriangle className="size-4 text-destructive shrink-0 mt-0.5" />
-              <div>
-                <p className="font-medium text-destructive">
-                  Conflito de horário
+            <div
+              className={
+                podeSubstituir
+                  ? "md:col-span-2 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30 p-3 text-sm"
+                  : "md:col-span-2 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+              }
+            >
+              <AlertTriangle
+                className={
+                  podeSubstituir
+                    ? "size-4 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5"
+                    : "size-4 text-destructive shrink-0 mt-0.5"
+                }
+              />
+              <div className="flex-1 min-w-0">
+                <p
+                  className={
+                    podeSubstituir
+                      ? "font-medium text-amber-900 dark:text-amber-100"
+                      : "font-medium text-destructive"
+                  }
+                >
+                  {podeSubstituir
+                    ? "Reserva existente — pode ser substituída"
+                    : "Conflito de horário"}
                 </p>
-                <p className="text-muted-foreground text-xs">
-                  Este veículo já tem a reserva &quot;{conflito.destino}&quot;
-                  das {formatHora(conflito.inicio)} às{" "}
-                  {formatHora(conflito.fim)}.
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  Reserva &quot;{conflito.destino}&quot; das{" "}
+                  {formatHora(conflito.inicio)} às {formatHora(conflito.fim)}.
                 </p>
+                {conflitoSolicitante && (
+                  <div className="mt-2 text-xs space-y-0.5">
+                    <p>
+                      <span className="text-muted-foreground">Solicitante: </span>
+                      <span className="font-medium">{conflitoSolicitante.nome}</span>
+                      {conflitoSolicitante.cargo && (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {conflitoSolicitante.cargo}
+                        </span>
+                      )}
+                    </p>
+                    {conflitoSolicitante.telefone && (
+                      <p className="text-muted-foreground">
+                        Tel: {formatTelefone(conflitoSolicitante.telefone)}
+                      </p>
+                    )}
+                    {conflitoSolicitante.email && (
+                      <p className="text-muted-foreground">
+                        {conflitoSolicitante.email}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {podeSubstituir && (
+                  <p className="mt-2 text-xs text-amber-900 dark:text-amber-100">
+                    Sua hierarquia é superior. Você pode substituir esta
+                    reserva — quem perdeu receberá um email automático
+                    explicando o motivo.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -559,7 +746,7 @@ export function AgendamentoForm({
             excluirIds={excluirIdsPassageiros}
           />
 
-          {/* Email placeholder */}
+          {/* Aviso de notificação por email */}
           {totalUsuariosNotificar > 0 && (
             <div className="md:col-span-2 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30 p-3 text-sm">
               <Mail className="size-4 text-sky-700 dark:text-sky-300 shrink-0 mt-0.5" />
@@ -567,11 +754,12 @@ export function AgendamentoForm({
                 <p className="text-sky-900 dark:text-sky-100 font-medium">
                   {totalUsuariosNotificar} pessoa
                   {totalUsuariosNotificar === 1 ? " do sistema receberá" : "s do sistema receberão"}{" "}
-                  notificação
+                  notificação por email
                 </p>
                 <p className="text-xs text-sky-800/80 dark:text-sky-200/80">
-                  O envio automático de emails será ativado na integração com
-                  Supabase. Por enquanto, fica registrado quem foi listado.
+                  {editando
+                    ? "Quem foi incluído ou removido desde a última versão recebe o aviso correspondente."
+                    : "Cada passageiro listado recebe um email com os dados da viagem."}
                 </p>
               </div>
             </div>
@@ -599,12 +787,40 @@ export function AgendamentoForm({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={processando}>
             Cancelar
           </Button>
-          <Button onClick={aoSalvar} disabled={!!conflito}>
-            {editando ? "Salvar alterações" : "Criar reserva"}
-          </Button>
+          {conflito && podeSubstituir ? (
+            <Button onClick={aoSubstituir} disabled={processando}>
+              {processando ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Substituindo…
+                </>
+              ) : (
+                <>
+                  <ArrowUpFromDot className="size-4" />
+                  Substituir reserva
+                </>
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={aoSalvar}
+              disabled={!!conflito || processando}
+            >
+              {processando ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Salvando…
+                </>
+              ) : editando ? (
+                "Salvar alterações"
+              ) : (
+                "Criar reserva"
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
