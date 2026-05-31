@@ -15,6 +15,7 @@ import {
   removerSuperintendencia,
   upsertSuperintendencia,
 } from "@/lib/data/frota";
+import { notificarFalha } from "@/lib/notificacoes";
 
 interface SuperintendenciasContextValue {
   superintendencias: Superintendencia[];
@@ -41,7 +42,7 @@ export function SuperintendenciasProvider({ children }: { children: ReactNode })
       .then((lista) => {
         if (vivo) setSuperintendencias(lista);
       })
-      .catch((e) => console.error("Falha ao carregar superintendências", e))
+      .catch((e) => notificarFalha("Falha ao carregar superintendências", e))
       .finally(() => {
         if (vivo) setCarregando(false);
       });
@@ -68,14 +69,14 @@ export function SuperintendenciasProvider({ children }: { children: ReactNode })
       return atual.map((x, i) => (i === idx ? s : x));
     });
     upsertSuperintendencia(s).catch((e) =>
-      console.error("Falha ao salvar superintendência", e),
+      notificarFalha("Falha ao salvar superintendência", e),
     );
   }, []);
 
   const remover = useCallback((id: string) => {
     setSuperintendencias((atual) => atual.filter((s) => s.id !== id));
     removerSuperintendencia(id).catch((e) =>
-      console.error("Falha ao remover superintendência", e),
+      notificarFalha("Falha ao remover superintendência", e),
     );
   }, []);
 

@@ -77,10 +77,33 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
   const { buscarPorId: buscarUsuario } = useUsuarios();
   const { buscarPorId: buscarOrgao } = useOrgaos();
   const { buscarPorId: buscarSuperintendencia } = useSuperintendencias();
-  const { alterarStatus, remover } = useAgendamentos();
+  const { alterarStatus, cancelar, remover } = useAgendamentos();
   const { usuario: usuarioAtual } = usePerfil();
   const { confirmar } = useConfirmacao();
   const [tipoCheck, setTipoCheck] = useState<TipoCheck | null>(null);
+  const [processandoCancel, setProcessandoCancel] = useState(false);
+
+  async function aoCancelar() {
+    if (!agendamento) return;
+    const ok = await confirmar({
+      titulo: "Cancelar esta reserva?",
+      mensagem:
+        "Solicitante, motorista e passageiros usuários serão notificados por email.",
+      destrutivo: true,
+      rotuloOk: "Cancelar reserva",
+    });
+    if (!ok) return;
+    setProcessandoCancel(true);
+    try {
+      await cancelar(agendamento.id);
+      onClose();
+    } catch {
+      // `cancelar` já notifica via toast; o dialog permanece aberto pra
+      // o usuário ver o estado atualizado depois do recarregar.
+    } finally {
+      setProcessandoCancel(false);
+    }
+  }
 
   if (!agendamento) return null;
 
@@ -382,11 +405,16 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
                     key={s}
                     size="sm"
                     variant={variant}
+                    disabled={s === "cancelado" && processandoCancel}
                     onClick={() => {
                       if (s === "em_andamento") {
                         setTipoCheck("saida");
                       } else if (s === "concluido") {
                         setTipoCheck("retorno");
+                      } else if (s === "cancelado") {
+                        // Vai pelo cancelar() para aguardar a resposta do servidor
+                        // e mostrar erro caso o estado já tenha mudado.
+                        void aoCancelar();
                       } else {
                         alterarStatus(agendamento.id, s);
                         onClose();

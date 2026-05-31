@@ -4,6 +4,7 @@ import { VeiculosProvider } from "@/lib/store/veiculos-context";
 import { AgendamentosProvider } from "@/lib/store/agendamentos-context";
 import { ConfirmacaoProvider } from "@/components/confirmacao-provider";
 import { GuardaRota } from "@/components/guarda-rota";
+import { Notificacoes } from "@/components/notificacoes";
 
 export default function DashboardLayout({
   children,
@@ -24,6 +25,7 @@ export default function DashboardLayout({
                 </main>
               </div>
             </div>
+            <Notificacoes />
           </SidebarMobileProvider>
         </ConfirmacaoProvider>
       </AgendamentosProvider>

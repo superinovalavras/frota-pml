@@ -16,6 +16,7 @@ import {
   upsertAgendamento,
 } from "@/lib/data/frota";
 import { useVeiculos } from "./veiculos-context";
+import { notificarFalha } from "@/lib/notificacoes";
 
 interface AgendamentosContextValue {
   agendamentos: Agendamento[];
@@ -45,12 +46,13 @@ interface AgendamentosContextValue {
 
 const AgendamentosContext = createContext<AgendamentosContextValue | null>(null);
 
+/**
+ * Grava no Supabase. Propaga o erro pro chamador (que decide se mostra na
+ * UI inline ou via toast) — `criar`/`salvar` reverte o estado local em
+ * caso de falha pra evitar o cenário "id existe na tela mas não no banco".
+ */
 async function persistir(a: Agendamento): Promise<void> {
-  try {
-    await upsertAgendamento(a);
-  } catch (e) {
-    console.error("Falha ao salvar agendamento", e);
-  }
+  await upsertAgendamento(a);
 }
 
 async function cancelarNoServidor(id: string, motivo?: string): Promise<void> {
@@ -76,7 +78,7 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
       .then((lista) => {
         if (vivo) setAgendamentos(lista);
       })
-      .catch((e) => console.error("Falha ao carregar agendamentos", e))
+      .catch((e) => notificarFalha("Falha ao carregar agendamentos", e))
       .finally(() => {
         if (vivo) setCarregando(false);
       });
@@ -119,19 +121,42 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
         criadoEm: new Date().toISOString(),
       };
       setAgendamentos((atual) => [...atual, novo]);
-      await persistir(novo);
+      try {
+        await persistir(novo);
+      } catch (e) {
+        // Reverte o otimismo — sem isso a UI mostra um id que o banco
+        // nunca recebeu, e chamadas subsequentes (ex.: notificar-passageiros)
+        // batem em 404.
+        setAgendamentos((atual) => atual.filter((x) => x.id !== novo.id));
+        notificarFalha("Falha ao criar agendamento", e);
+        throw e;
+      }
       return novo;
     },
     [],
   );
 
   const salvar = useCallback(async (a: Agendamento) => {
+    let anterior: Agendamento | null = null;
     setAgendamentos((atual) => {
       const idx = atual.findIndex((x) => x.id === a.id);
       if (idx === -1) return [...atual, a];
+      anterior = atual[idx];
       return atual.map((x, i) => (i === idx ? a : x));
     });
-    await persistir(a);
+    try {
+      await persistir(a);
+    } catch (e) {
+      // Reverte pro estado anterior (se existia) ou remove (se era insert).
+      setAgendamentos((atual) => {
+        if (anterior) {
+          return atual.map((x) => (x.id === a.id ? anterior! : x));
+        }
+        return atual.filter((x) => x.id !== a.id);
+      });
+      notificarFalha("Falha ao salvar agendamento", e);
+      throw e;
+    }
   }, []);
 
   const recarregar = useCallback(async () => {
@@ -139,7 +164,7 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
       const lista = await listarAgendamentos();
       setAgendamentos(lista);
     } catch (e) {
-      console.error("Falha ao recarregar agendamentos", e);
+      notificarFalha("Falha ao recarregar agendamentos", e);
     }
   }, []);
 
@@ -153,7 +178,7 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
       try {
         await cancelarNoServidor(id, motivo);
       } catch (e) {
-        console.error("Falha ao cancelar reserva", e);
+        notificarFalha("Falha ao cancelar reserva", e);
         await recarregar();
         throw e;
       }
@@ -174,7 +199,15 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
         const idx = atual.findIndex((a) => a.id === id);
         if (idx === -1) return atual;
         const atualizado = { ...atual[idx], status: novo };
-        persistir(atualizado);
+        const anterior = atual[idx];
+        persistir(atualizado).catch((e) => {
+          notificarFalha(`Falha ao atualizar status (${novo})`, e);
+          // Reverte pro estado anterior; o usuário enxerga o toast e o
+          // status volta ao que era.
+          setAgendamentos((cur) =>
+            cur.map((x) => (x.id === id ? anterior : x)),
+          );
+        });
         return atual.map((a, i) => (i === idx ? atualizado : a));
       });
     },
@@ -184,7 +217,7 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
   const remover = useCallback((id: string) => {
     setAgendamentos((atual) => atual.filter((a) => a.id !== id));
     removerAgendamento(id).catch((e) =>
-      console.error("Falha ao remover agendamento", e),
+      notificarFalha("Falha ao remover agendamento", e),
     );
   }, []);
 

@@ -16,6 +16,7 @@ import {
   upsertUsuario,
 } from "@/lib/data/frota";
 import { useFuncoes } from "./funcoes-context";
+import { notificarFalha } from "@/lib/notificacoes";
 
 interface UsuariosContextValue {
   usuarios: Usuario[];
@@ -46,7 +47,7 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
       .then((lista) => {
         if (vivo) setUsuarios(lista);
       })
-      .catch((e) => console.error("Falha ao carregar usuários", e))
+      .catch((e) => notificarFalha("Falha ao carregar usuários", e))
       .finally(() => {
         if (vivo) setCarregando(false);
       });
@@ -91,7 +92,7 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
         return atual.map((x, i) => (i === idx ? sincronizado : x));
       });
       upsertUsuario(sincronizado).catch((e) =>
-        console.error("Falha ao salvar usuário", e),
+        notificarFalha("Falha ao salvar usuário", e),
       );
     },
     [funcoes],
@@ -99,7 +100,7 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
 
   const remover = useCallback((id: string) => {
     setUsuarios((atual) => atual.filter((u) => u.id !== id));
-    removerUsuario(id).catch((e) => console.error("Falha ao remover usuário", e));
+    removerUsuario(id).catch((e) => notificarFalha("Falha ao remover usuário", e));
   }, []);
 
   const recarregar = useCallback(async () => {
@@ -107,7 +108,7 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
       const lista = await listarUsuarios();
       setUsuarios(lista);
     } catch (e) {
-      console.error("Falha ao recarregar usuários", e);
+      notificarFalha("Falha ao recarregar usuários", e);
     }
   }, []);
 

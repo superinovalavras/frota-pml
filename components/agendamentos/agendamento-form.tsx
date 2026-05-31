@@ -370,21 +370,43 @@ export function AgendamentoForm({
     setProcessando(true);
     try {
       let agendamentoIdSalvo: string;
+      let statusSalvo: string;
       if (editando && agendamento) {
         agendamentoIdSalvo = agendamento.id;
+        statusSalvo = agendamento.status;
         await salvar({ ...agendamento, ...v.dadosBase });
       } else {
         const novo = await criar({ ...v.dadosBase, status: statusInicial });
         agendamentoIdSalvo = novo.id;
+        statusSalvo = statusInicial;
       }
 
-      const { adicionadosIds, removidosIds } = diffPassageirosUsuario(
-        agendamento?.passageiros ?? [],
-        passageiros,
-      );
-      dispararNotificacaoPassageiros(agendamentoIdSalvo, adicionadosIds, removidosIds);
+      // Só notifica passageiros se a reserva já saiu da fila de aprovação.
+      // Reservas em "pendente" podem ser recusadas pelo gestor — avisar
+      // passageiros antes disso gera mensagens prematuras.
+      if (statusSalvo !== "pendente") {
+        const { adicionadosIds, removidosIds } = diffPassageirosUsuario(
+          agendamento?.passageiros ?? [],
+          passageiros,
+        );
+        dispararNotificacaoPassageiros(
+          agendamentoIdSalvo,
+          adicionadosIds,
+          removidosIds,
+        );
+      }
 
       onClose();
+    } catch (e) {
+      // criar/salvar já mostraram toast e reverteram o estado local.
+      // Mantemos o dialog aberto pra o usuário corrigir/tentar de novo,
+      // e exibimos o erro inline também (chamamos a atenção sem depender
+      // do toast no canto da tela).
+      setErro(
+        e instanceof Error
+          ? e.message
+          : "Falha ao salvar — verifique a conexão e tente novamente.",
+      );
     } finally {
       setProcessando(false);
     }

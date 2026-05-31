@@ -36,7 +36,7 @@ export function CheckInOutDialog({
   onConcluido,
 }: Props) {
   const aberto = !!agendamento && !!tipo;
-  const { salvar, alterarStatus } = useAgendamentos();
+  const { salvar } = useAgendamentos();
   const { veiculos, salvar: salvarVeiculo } = useVeiculos();
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
@@ -83,7 +83,9 @@ export function CheckInOutDialog({
     }
   }
 
-  function aoConfirmar() {
+  const [processando, setProcessando] = useState(false);
+
+  async function aoConfirmar() {
     if (!agendamento || !tipo) return;
 
     if (km.trim() === "") {
@@ -111,36 +113,50 @@ export function CheckInOutDialog({
     const agora = new Date().toISOString();
     const obsLimpa = observacoes.trim() || undefined;
 
-    if (tipo === "saida") {
-      salvar({
-        ...agendamento,
-        status: "em_andamento",
-        checkinEm: agora,
-        kmSaida: kmNum,
-        fotoSaidaUrl: fotoUrl,
-        obsSaida: obsLimpa,
-      });
-      // alterarStatus já é redundante (salvar mudou status), mas garante consistência se
-      // outros consumidores observarem só status. Mantemos um path único.
-      alterarStatus(agendamento.id, "em_andamento");
-    } else {
-      salvar({
-        ...agendamento,
-        status: "concluido",
-        checkoutEm: agora,
-        kmRetorno: kmNum,
-        fotoRetornoUrl: fotoUrl,
-        obsRetorno: obsLimpa,
-      });
-      alterarStatus(agendamento.id, "concluido");
-      // Atualiza km do veículo
-      if (veiculo && kmNum > veiculo.kmAtual) {
-        salvarVeiculo({ ...veiculo, kmAtual: kmNum });
+    setProcessando(true);
+    try {
+      if (tipo === "saida") {
+        // Aguarda o write — sem isso o usuário pode fechar o dialog antes do
+        // upsert resolver, e em caso de erro o estado fica fora de sincronia.
+        // `salvar` já muda o status; não precisamos chamar alterarStatus de
+        // novo (ele dispararia mais um POST sem motivo).
+        await salvar({
+          ...agendamento,
+          status: "em_andamento",
+          checkinEm: agora,
+          kmSaida: kmNum,
+          fotoSaidaUrl: fotoUrl,
+          obsSaida: obsLimpa,
+        });
+      } else {
+        await salvar({
+          ...agendamento,
+          status: "concluido",
+          checkoutEm: agora,
+          kmRetorno: kmNum,
+          fotoRetornoUrl: fotoUrl,
+          obsRetorno: obsLimpa,
+        });
+        // Atualiza km do veículo (best-effort; veiculos-context já mostra
+        // toast em caso de erro).
+        if (veiculo && kmNum > veiculo.kmAtual) {
+          salvarVeiculo({ ...veiculo, kmAtual: kmNum });
+        }
       }
-    }
 
-    onConcluido?.();
-    onClose();
+      onConcluido?.();
+      onClose();
+    } catch (e) {
+      // `salvar` já reverte o estado otimista e mostra toast; deixamos o
+      // dialog aberto pro usuário tentar de novo.
+      setErro(
+        e instanceof Error
+          ? e.message
+          : "Falha ao registrar — verifique a conexão e tente novamente.",
+      );
+    } finally {
+      setProcessando(false);
+    }
   }
 
   const titulo =
@@ -270,10 +286,20 @@ export function CheckInOutDialog({
         </div>
 
         <DialogFooter className="flex-row sm:justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            disabled={processando}
+          >
             Cancelar
           </Button>
-          <Button type="button" onClick={aoConfirmar} disabled={carregandoFoto}>
+          <Button
+            type="button"
+            onClick={aoConfirmar}
+            disabled={carregandoFoto || processando}
+          >
+            {processando && <Loader2 className="size-4 animate-spin" />}
             {rotuloBotao}
           </Button>
         </DialogFooter>

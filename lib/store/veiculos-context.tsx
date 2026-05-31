@@ -15,6 +15,7 @@ import {
   removerVeiculo,
   upsertVeiculo,
 } from "@/lib/data/frota";
+import { notificarFalha } from "@/lib/notificacoes";
 
 interface VeiculosContextValue {
   veiculos: Veiculo[];
@@ -38,7 +39,7 @@ export function VeiculosProvider({ children }: { children: ReactNode }) {
       .then((lista) => {
         if (vivo) setVeiculos(lista);
       })
-      .catch((e) => console.error("Falha ao carregar veículos", e))
+      .catch((e) => notificarFalha("Falha ao carregar veículos", e))
       .finally(() => {
         if (vivo) setCarregando(false);
       });
@@ -55,12 +56,12 @@ export function VeiculosProvider({ children }: { children: ReactNode }) {
       copia[idx] = v;
       return copia;
     });
-    upsertVeiculo(v).catch((e) => console.error("Falha ao salvar veículo", e));
+    upsertVeiculo(v).catch((e) => notificarFalha("Falha ao salvar veículo", e));
   }, []);
 
   const remover = useCallback((id: string) => {
     setVeiculos((atual) => atual.filter((v) => v.id !== id));
-    removerVeiculo(id).catch((e) => console.error("Falha ao remover veículo", e));
+    removerVeiculo(id).catch((e) => notificarFalha("Falha ao remover veículo", e));
   }, []);
 
   const recarregar = useCallback(async () => {
@@ -68,7 +69,7 @@ export function VeiculosProvider({ children }: { children: ReactNode }) {
       const lista = await listarVeiculos();
       setVeiculos(lista);
     } catch (e) {
-      console.error("Falha ao recarregar veículos", e);
+      notificarFalha("Falha ao recarregar veículos", e);
     }
   }, []);
 
