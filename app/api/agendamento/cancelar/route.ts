@@ -160,10 +160,12 @@ export async function POST(req: Request) {
       .map((p) => ({ email: p.email, nome: p.nome, profileId: p.id }));
 
     if (destinatarios.length > 0) {
-      const origem: "solicitante" | "gestor" =
-        ehDono && !ehMaster && ator.perfil !== "gestor"
-          ? "solicitante"
-          : "gestor";
+      // Classificação correta:
+      // - "solicitante": o dono da reserva cancelou (independente do perfil).
+      // - "gestor": alguém com permissão administrativa cancelou em nome de
+      //   outro (master cancelando reserva alheia, gestor cancelando reserva
+      //   de servidor da sua secretaria).
+      const origem: "solicitante" | "gestor" = ehDono ? "solicitante" : "gestor";
 
       const payload = {
         reserva: {
