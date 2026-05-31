@@ -54,9 +54,14 @@ create table public.email_outbox (
   corpo_html               text,
   corpo_texto              text,
   status                   text not null default 'pendente'
-                             check (status in ('pendente','enviado','falhou')),
+                             check (status in ('pendente','enviando','enviado','falhou')),
   tentativas               int  not null default 0,
   erro_ultimo              text,
+  -- Marca o momento em que o dispatcher reclamou a linha (status='enviando').
+  -- Se um processo morrer entre o claim e o send, a linha fica em "enviando"
+  -- indefinidamente — o próximo dispatcher recupera linhas com claimed_em
+  -- antigo (timeout) e reseta pra 'pendente'.
+  claimed_em               timestamptz,
   agendamento_id           text references public.agendamentos(id) on delete set null,
   veiculo_id               text references public.veiculos(id) on delete set null,
   criado_em                timestamptz not null default now(),

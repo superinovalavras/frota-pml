@@ -160,9 +160,27 @@ export async function POST(req: Request) {
 
   // Autorização por hierarquia: só master ignora; caso contrário a nova
   // hierarquia precisa ser estritamente menor (= maior prioridade).
+  // Importante: null coage para 0 em comparações JS, o que dava `null >= 1` =
+  // false e deixava passar. Tratamos null/undefined como "sem hierarquia
+  // definida" → bloqueia explicitamente.
   const ehMaster = ator.perfil === "master";
   if (!ehMaster) {
-    if (novoSolic.hierarquia >= existenteSolic.hierarquia) {
+    const hNovo = novoSolic.hierarquia;
+    const hExist = existenteSolic.hierarquia;
+    if (
+      hNovo === null ||
+      hNovo === undefined ||
+      hExist === null ||
+      hExist === undefined
+    ) {
+      return NextResponse.json(
+        {
+          erro: "Hierarquia indefinida em um dos perfis — não é possível avaliar a substituição.",
+        },
+        { status: 409 },
+      );
+    }
+    if (hNovo >= hExist) {
       return NextResponse.json(
         {
           erro: "A substituição exige hierarquia superior à do solicitante atual.",
@@ -220,19 +238,29 @@ export async function POST(req: Request) {
     );
   }
 
-  // 1) Marca o existente como substituído
+  // 1) Marca o existente como substituído. O .eq("status", existente.status)
+  // garante atomicidade: duas substituições paralelas não conseguem ambas
+  // marcar a mesma reserva como substituida.
   const obsSubst = `[${new Date().toISOString()}] Substituído por ${novoSolic.nome} (hierarquia superior).`;
   const novaObsExist = existente.observacoes
     ? `${existente.observacoes}\n\n${obsSubst}`
     : obsSubst;
-  const { error: errMarc } = await admin
+  const { data: linhasMarc, error: errMarc } = await admin
     .from("agendamentos")
     .update({ status: "substituido", observacoes: novaObsExist })
-    .eq("id", existente.id);
+    .eq("id", existente.id)
+    .eq("status", existente.status)
+    .select("id");
   if (errMarc) {
     return NextResponse.json(
       { erro: `Falha ao marcar substituição: ${errMarc.message}` },
       { status: 500 },
+    );
+  }
+  if (!linhasMarc || linhasMarc.length === 0) {
+    return NextResponse.json(
+      { erro: "Reserva existente mudou de estado — recarregue e tente de novo." },
+      { status: 409 },
     );
   }
 
@@ -256,11 +284,26 @@ export async function POST(req: Request) {
     criado_em: new Date().toISOString(),
   });
   if (errIns) {
-    // Tenta reverter a marcação (best-effort)
-    await admin
+    // Tenta reverter a marcação. Se o próprio revert falhar, sinaliza
+    // explicitamente no erro pro client mostrar pro usuário — caso contrário
+    // a reserva original fica órfã em "substituido" sem ninguém saber.
+    const { error: errRevert } = await admin
       .from("agendamentos")
       .update({ status: existente.status, observacoes: existente.observacoes })
       .eq("id", existente.id);
+    if (errRevert) {
+      console.error(
+        `[substituir] Revert falhou — reserva ${existente.id} ficou órfã em "substituido". Erro original: ${errIns.message}. Erro revert: ${errRevert.message}`,
+      );
+      return NextResponse.json(
+        {
+          erro: `Falha ao criar nova reserva (${errIns.message}) e revert também falhou (${errRevert.message}). A reserva ${existente.id} ficou marcada como "substituido" — peça ao admin para restaurar manualmente.`,
+          revertFalhou: true,
+          existenteId: existente.id,
+        },
+        { status: 500 },
+      );
+    }
     return NextResponse.json(
       { erro: `Falha ao criar nova reserva: ${errIns.message}` },
       { status: 500 },

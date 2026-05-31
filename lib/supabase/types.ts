@@ -109,7 +109,11 @@ export type EmailEventoTipoDb =
   | "passageiro_adicionado"
   | "passageiro_removido";
 
-export type EmailStatusDb = "pendente" | "enviado" | "falhou";
+export type EmailStatusDb =
+  | "pendente"
+  | "enviando"
+  | "enviado"
+  | "falhou";
 
 type EmailOutboxRow = {
   id: string;
@@ -124,6 +128,7 @@ type EmailOutboxRow = {
   status: EmailStatusDb;
   tentativas: number;
   erro_ultimo: string | null;
+  claimed_em: string | null;
   agendamento_id: string | null;
   veiculo_id: string | null;
   criado_em: string;

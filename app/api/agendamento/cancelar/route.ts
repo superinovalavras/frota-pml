@@ -94,19 +94,30 @@ export async function POST(req: Request) {
     );
   }
 
-  // Atualiza status + appenda observação
+  // Atualiza status + appenda observação. O .eq("status", reserva.status)
+  // garante que dois cancelamentos paralelos não enfileirem emails duplicados:
+  // só uma das requests "ganha" o UPDATE; a outra recebe 0 linhas afetadas e
+  // resolve como 409 sem reenfileirar.
   const obsCancel = motivo
     ? `[${new Date().toISOString()}] Cancelado por ${ator.nome}: ${motivo}`
     : `[${new Date().toISOString()}] Cancelado por ${ator.nome}.`;
   const novaObs = reserva.observacoes ? `${reserva.observacoes}\n\n${obsCancel}` : obsCancel;
-  const { error: errUpd } = await admin
+  const { data: linhasUpd, error: errUpd } = await admin
     .from("agendamentos")
     .update({ status: "cancelado", observacoes: novaObs })
-    .eq("id", corpo.id);
+    .eq("id", corpo.id)
+    .eq("status", reserva.status)
+    .select("id");
   if (errUpd) {
     return NextResponse.json(
       { erro: `Falha ao cancelar: ${errUpd.message}` },
       { status: 500 },
+    );
+  }
+  if (!linhasUpd || linhasUpd.length === 0) {
+    return NextResponse.json(
+      { erro: "Reserva mudou de estado entre a leitura e a gravação — recarregue e tente de novo." },
+      { status: 409 },
     );
   }
 

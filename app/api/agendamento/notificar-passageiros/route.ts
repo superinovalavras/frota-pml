@@ -19,6 +19,7 @@ import { obterAtor } from "@/lib/api/autenticar";
 import { enfileirarEmailLote } from "@/lib/email/outbox";
 import { processarFila } from "@/lib/email/dispatcher";
 import { timestamptzParaIsoLocal } from "@/lib/data/mappers";
+import type { Passageiro } from "@/lib/mock/types";
 
 interface Corpo {
   id?: unknown;
@@ -43,9 +44,9 @@ export async function POST(req: Request) {
   if (typeof corpo.id !== "string" || !corpo.id) {
     return NextResponse.json({ erro: "id obrigatório." }, { status: 400 });
   }
-  const adicionados = listaDeStrings(corpo.adicionadosIds);
-  const removidos = listaDeStrings(corpo.removidosIds);
-  if (adicionados.length === 0 && removidos.length === 0) {
+  const adicionadosBrutos = listaDeStrings(corpo.adicionadosIds);
+  const removidosBrutos = listaDeStrings(corpo.removidosIds);
+  if (adicionadosBrutos.length === 0 && removidosBrutos.length === 0) {
     return NextResponse.json({ ok: true, emailsEnfileirados: 0 });
   }
 
@@ -59,12 +60,28 @@ export async function POST(req: Request) {
   const { data: reserva, error: errResv } = await admin
     .from("agendamentos")
     .select(
-      "id, veiculo_id, solicitante_id, motorista_id, inicio, fim, dia_todo, destino, finalidade, local_partida, local_devolucao",
+      "id, veiculo_id, solicitante_id, motorista_id, inicio, fim, dia_todo, destino, finalidade, local_partida, local_devolucao, passageiros, status",
     )
     .eq("id", corpo.id)
     .maybeSingle();
   if (errResv || !reserva) {
     return NextResponse.json({ erro: "Reserva não encontrada." }, { status: 404 });
+  }
+
+  // Não notifica reservas que ainda dependem de aprovação ou já saíram do ar:
+  // - pendente: o gestor pode recusar; passageiro receberia aviso prematuro.
+  // - cancelado/substituido/concluido: motivações distintas têm rotas próprias.
+  if (
+    reserva.status === "pendente" ||
+    reserva.status === "cancelado" ||
+    reserva.status === "substituido" ||
+    reserva.status === "concluido"
+  ) {
+    return NextResponse.json({
+      ok: true,
+      emailsEnfileirados: 0,
+      observacao: `Reserva com status "${reserva.status}" — notificação suprimida.`,
+    });
   }
 
   // Autorização
@@ -89,6 +106,30 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
+  }
+
+  // Reconcilia adicionados/removidos com a lista REAL de passageiros.
+  // - "adicionados" só sai se o id está realmente em reserva.passageiros
+  //   agora (o client já gravou a nova lista antes de chamar esta rota).
+  // - "removidos" só sai se o id NÃO está em reserva.passageiros.
+  // Sem isso, um caller autorizado conseguiria enviar emails referenciando
+  // a reserva para ids arbitrários.
+  const idsAtuais = new Set<string>();
+  for (const p of (Array.isArray(reserva.passageiros)
+    ? reserva.passageiros
+    : []) as Passageiro[]) {
+    if (p?.tipo === "usuario" && typeof p.usuarioId === "string") {
+      idsAtuais.add(p.usuarioId);
+    }
+  }
+  const adicionados = adicionadosBrutos.filter((id) => idsAtuais.has(id));
+  const removidos = removidosBrutos.filter((id) => !idsAtuais.has(id));
+  if (adicionados.length === 0 && removidos.length === 0) {
+    return NextResponse.json({
+      ok: true,
+      emailsEnfileirados: 0,
+      observacao: "Nada a notificar — diff não bate com a lista atual.",
+    });
   }
 
   // Veículo

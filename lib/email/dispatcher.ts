@@ -19,6 +19,8 @@ import type { EmailEventoTipo } from "@/lib/mock/types";
 
 const MAX_TENTATIVAS = 3;
 const LIMITE_LOTE_PADRAO = 50;
+/** Quanto tempo até considerar uma linha "enviando" abandonada e re-reclamá-la. */
+const CLAIM_TIMEOUT_MS = 5 * 60 * 1000;
 
 export interface ResumoProcessamento {
   total: number;
@@ -33,9 +35,18 @@ export async function processarFila(
   const limite = opcoes.limite ?? LIMITE_LOTE_PADRAO;
   const admin = criarSupabaseAdmin();
 
-  const { data: pendentes, error } = await admin
+  // Sweep defensivo: re-elegível qualquer linha em "enviando" cujo claim
+  // ficou velho (o processo anterior morreu antes de finalizar).
+  const limiteClaim = new Date(Date.now() - CLAIM_TIMEOUT_MS).toISOString();
+  await admin
     .from("email_outbox")
-    .select("*")
+    .update({ status: "pendente", claimed_em: null })
+    .eq("status", "enviando")
+    .lt("claimed_em", limiteClaim);
+
+  const { data: candidatos, error } = await admin
+    .from("email_outbox")
+    .select("id")
     .eq("status", "pendente")
     .lt("tentativas", MAX_TENTATIVAS)
     .order("criado_em", { ascending: true })
@@ -45,13 +56,31 @@ export async function processarFila(
     throw new Error(`Falha ao buscar fila: ${error.message}`);
   }
 
-  const itens = pendentes ?? [];
+  const candidatosIds = (candidatos ?? []).map((r) => r.id);
   const resumo: ResumoProcessamento = {
-    total: itens.length,
+    total: 0,
     enviados: 0,
     falhados: 0,
     abandonados: 0,
   };
+  if (candidatosIds.length === 0) return resumo;
+
+  // CLAIM: marca como "enviando" só as linhas que ainda estão "pendente".
+  // Como o UPDATE de uma linha é atômico, duas invocações concorrentes não
+  // conseguem ambas reclamar o mesmo id — uma das duas vê 0 rows pra essa
+  // linha. Só processamos as linhas que VOLTAM do RETURNING (`select()`).
+  const { data: reclamados, error: errClaim } = await admin
+    .from("email_outbox")
+    .update({ status: "enviando", claimed_em: new Date().toISOString() })
+    .in("id", candidatosIds)
+    .eq("status", "pendente")
+    .select("*");
+  if (errClaim) {
+    throw new Error(`Falha ao reclamar lote: ${errClaim.message}`);
+  }
+  const itens = reclamados ?? [];
+  resumo.total = itens.length;
+  if (itens.length === 0) return resumo;
 
   for (const item of itens) {
     let assunto = item.assunto;
@@ -95,6 +124,7 @@ export async function processarFila(
           status: "enviado",
           tentativas: item.tentativas + 1,
           enviado_em: new Date().toISOString(),
+          claimed_em: null,
           corpo_html: html,
           corpo_texto: texto,
           assunto,
@@ -125,7 +155,7 @@ async function marcarFalha(
   const status = tentativas >= MAX_TENTATIVAS ? "falhou" : "pendente";
   const { error } = await admin
     .from("email_outbox")
-    .update({ tentativas, status, erro_ultimo: erro })
+    .update({ tentativas, status, erro_ultimo: erro, claimed_em: null })
     .eq("id", id);
   if (error) {
     console.error(`Falha ao atualizar item ${id}: ${error.message}`);
