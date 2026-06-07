@@ -37,7 +37,7 @@ export function CheckInOutDialog({
 }: Props) {
   const aberto = !!agendamento && !!tipo;
   const { salvar } = useAgendamentos();
-  const { veiculos, salvar: salvarVeiculo } = useVeiculos();
+  const { veiculos } = useVeiculos();
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
   const [km, setKm] = useState<string>("");
@@ -137,11 +137,9 @@ export function CheckInOutDialog({
           fotoRetornoUrl: fotoUrl,
           obsRetorno: obsLimpa,
         });
-        // Atualiza km do veículo (best-effort; veiculos-context já mostra
-        // toast em caso de erro).
-        if (veiculo && kmNum > veiculo.kmAtual) {
-          salvarVeiculo({ ...veiculo, kmAtual: kmNum });
-        }
+        // O km_atual do veículo é atualizado por trigger no banco (migration
+        // 0004) a partir do km_retorno — não escrevemos em veiculos no cliente
+        // (a RLS de veiculos é só Master).
       }
 
       onConcluido?.();

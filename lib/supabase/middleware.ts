@@ -3,10 +3,10 @@ import { createServerClient } from "@supabase/ssr";
 import type { Database } from "./types";
 
 /**
- * Renova a sessão do Supabase a cada requisição e devolve a resposta com os
- * cookies atualizados. NÃO bloqueia rotas — a app continua acessível em
- * "modo demonstração" sem sessão. (Quando o login estiver validado, dá para
- * adicionar aqui um redirect para /login quando não houver usuário.)
+ * Renova a sessão do Supabase a cada requisição e exige login: sem sessão,
+ * qualquer rota protegida redireciona para /login. Rotas públicas: /login e
+ * /api/* (as rotas de API fazem a própria autorização e respondem em JSON,
+ * então não devem ser redirecionadas).
  */
 export async function atualizarSessao(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -33,7 +33,19 @@ export async function atualizarSessao(request: NextRequest) {
   });
 
   // Importante: chamar getUser() — força a renovação do token se necessário.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // Exige login: sem sessão, redireciona rotas protegidas para /login.
+  const path = request.nextUrl.pathname;
+  const ehPublico = path === "/login" || path.startsWith("/api");
+  if (!user && !ehPublico) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = "/login";
+    destino.search = "";
+    return NextResponse.redirect(destino);
+  }
 
   return response;
 }

@@ -15,7 +15,6 @@ import {
   removerAgendamento,
   upsertAgendamento,
 } from "@/lib/data/frota";
-import { useVeiculos } from "./veiculos-context";
 import { notificarFalha } from "@/lib/notificacoes";
 
 interface AgendamentosContextValue {
@@ -70,7 +69,6 @@ async function cancelarNoServidor(id: string, motivo?: string): Promise<void> {
 export function AgendamentosProvider({ children }: { children: ReactNode }) {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const { salvar: salvarVeiculo, veiculos } = useVeiculos();
 
   useEffect(() => {
     let vivo = true;
@@ -87,26 +85,10 @@ export function AgendamentosProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Sincroniza o status do veículo com agendamentos em_andamento.
-  // Manutenção/indisponível são preservados (status manuais).
-  // (TODO Fase 2c: mover para um trigger no banco — assim não depende de
-  // ter o app aberto e não há corrida entre abas/usuários.)
-  useEffect(() => {
-    if (carregando) return;
-    const emUsoIds = new Set(
-      agendamentos
-        .filter((a) => a.status === "em_andamento")
-        .map((a) => a.veiculoId),
-    );
-    for (const v of veiculos) {
-      if (v.status === "manutencao" || v.status === "indisponivel") continue;
-      if (emUsoIds.has(v.id) && v.status !== "em_uso") {
-        salvarVeiculo({ ...v, status: "em_uso" });
-      } else if (!emUsoIds.has(v.id) && v.status === "em_uso") {
-        salvarVeiculo({ ...v, status: "disponivel" });
-      }
-    }
-  }, [agendamentos, veiculos, carregando, salvarVeiculo]);
+  // A sincronia de `veiculos.status` (em_uso/disponivel) com os agendamentos
+  // em_andamento agora é feita por TRIGGER no banco (migration 0003) — assim
+  // não depende do app aberto e funciona sob RLS (o cliente não escreve em
+  // veiculos). Idem o KM no check-out (trigger da migration 0004).
 
   const buscarPorId = useCallback(
     (id: string) => agendamentos.find((a) => a.id === id),

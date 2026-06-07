@@ -82,6 +82,47 @@ function validarNovo(x: unknown): NovoAgendamento | null {
   };
 }
 
+/**
+ * Veículos equivalentes (mesma secretaria + CNH exigida, status "disponivel")
+ * que NÃO têm reserva ativa sobrepondo a janela informada. Reflete o "status
+ * atual da frota" para quem perdeu a reserva.
+ */
+async function alternativasLivres(
+  admin: ReturnType<typeof criarSupabaseAdmin>,
+  secretariaId: string,
+  cnhExigida: string,
+  veiculoExcluidoId: string,
+  janelaInicio: string,
+  janelaFim: string,
+): Promise<{ id: string; placa: string; nome: string }[]> {
+  const { data: candidatos } = await admin
+    .from("veiculos")
+    .select("id, placa, modelo, marca")
+    .eq("secretaria_id", secretariaId)
+    .eq("cnh_exigida", cnhExigida)
+    .eq("status", "disponivel")
+    .neq("id", veiculoExcluidoId);
+  if (!candidatos || candidatos.length === 0) return [];
+
+  const ids = candidatos.map((v) => v.id);
+  const { data: ocupados } = await admin
+    .from("agendamentos")
+    .select("veiculo_id")
+    .in("veiculo_id", ids)
+    .in("status", ["pendente", "confirmado", "em_andamento"])
+    .lt("inicio", janelaFim)
+    .gt("fim", janelaInicio);
+  const ocupadosSet = new Set((ocupados ?? []).map((o) => o.veiculo_id));
+
+  return candidatos
+    .filter((v) => !ocupadosSet.has(v.id))
+    .map((v) => ({
+      id: v.id,
+      placa: v.placa,
+      nome: [v.marca, v.modelo].filter(Boolean).join(" ").trim() || v.modelo,
+    }));
+}
+
 export async function POST(req: Request) {
   let corpo: Corpo;
   try {
@@ -128,7 +169,7 @@ export async function POST(req: Request) {
   // Veículo
   const { data: veiculo } = await admin
     .from("veiculos")
-    .select("id, placa, modelo, marca, secretaria_id")
+    .select("id, placa, modelo, marca, secretaria_id, cnh_exigida")
     .eq("id", novo.veiculoId)
     .maybeSingle();
   if (!veiculo) {
@@ -339,6 +380,18 @@ export async function POST(req: Request) {
       .map((p) => ({ email: p.email, nome: p.nome, profileId: p.id }));
 
     if (destinatarios.length > 0) {
+      // Status atual da frota: veículos equivalentes (mesma secretaria + CNH,
+      // disponíveis) que estão LIVRES na janela da reserva substituída — para
+      // o destinatário saber o que pode reservar no lugar.
+      const alternativas = await alternativasLivres(
+        admin,
+        veiculo.secretaria_id,
+        veiculo.cnh_exigida,
+        veiculo.id,
+        existente.inicio,
+        existente.fim,
+      );
+
       await enfileirarEmailLote(destinatarios, {
         tipoEvento: "agendamento_cancelado",
         assunto: `Reserva substituída — veículo ${veiculoEmail.placa}`,
@@ -359,6 +412,7 @@ export async function POST(req: Request) {
             contatoQuemCancelou:
               novoSolic.telefone || novoSolic.email || undefined,
           },
+          alternativas,
         },
         agendamentoId: existente.id,
         veiculoId: veiculo.id,

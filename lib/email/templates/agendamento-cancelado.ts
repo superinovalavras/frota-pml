@@ -46,10 +46,19 @@ interface PayloadCancelamento {
   motivo?: string;
 }
 
+interface PayloadAlternativa {
+  id: string;
+  placa: string;
+  nome: string;
+}
+
 interface PayloadAgendamentoCancelado {
   reserva: PayloadReserva;
   veiculo: PayloadVeiculo;
   cancelamento: PayloadCancelamento;
+  /** Veículos equivalentes livres na janela da reserva — preenchido na
+   *  substituição por hierarquia (status atual da frota). */
+  alternativas?: PayloadAlternativa[];
 }
 
 export function renderizarAgendamentoCancelado(
@@ -60,6 +69,8 @@ export function renderizarAgendamentoCancelado(
   const reserva = p.reserva;
   const veiculo = p.veiculo;
   const c = p.cancelamento;
+  const alternativas = p.alternativas;
+  const temAlternativas = Array.isArray(alternativas);
 
   const inicio = formatarDataHora(reserva.inicio);
   const fim = formatarDataHora(reserva.fim);
@@ -89,11 +100,23 @@ export function renderizarAgendamentoCancelado(
     (c.contatoQuemCancelou ? `  Contato: ${c.contatoQuemCancelou}\n` : "") +
     (c.motivo ? `  Motivo:  ${c.motivo}\n` : "");
 
+  const linhasAltTexto = temAlternativas
+    ? (alternativas!.length
+        ? alternativas!
+            .slice(0, 5)
+            .map((a) => `  • ${a.placa} — ${a.nome}`)
+            .join("\n")
+        : "  (Nenhum veículo equivalente livre neste período.)")
+    : "";
+
   const texto =
     `${sa}\n\n` +
     `${tituloCorpo}\n\n` +
     `Reserva cancelada:\n${linhasInfoTexto}\n` +
     (linhasCancelTexto ? `Cancelamento:\n${linhasCancelTexto}\n` : "") +
+    (temAlternativas
+      ? `Veículos equivalentes livres neste período:\n${linhasAltTexto}\n\n`
+      : "") +
     `Acesse o sistema FROTA PML para registrar uma nova reserva se necessário.\n\n` +
     `— FROTA PML`;
 
@@ -126,12 +149,26 @@ export function renderizarAgendamentoCancelado(
     linhasCancel.push({ label: "Motivo", valor: escapar(c.motivo) });
   }
 
+  const linhasAltHtml = temAlternativas
+    ? (alternativas!.length
+        ? `<ul style="margin:8px 0 0 0;padding-left:20px">${alternativas!
+            .slice(0, 5)
+            .map(
+              (a) =>
+                `<li><strong>${escapar(a.placa)}</strong> — ${escapar(a.nome)}</li>`,
+            )
+            .join("")}</ul>`
+        : `<p style="margin:8px 0 0 0;color:#6b7280;font-style:italic">Nenhum veículo equivalente livre neste período.</p>`)
+    : "";
+
   const corpo = `            <p style="margin:0 0 16px 0">${escapar(sa)}</p>
             <p style="margin:0 0 16px 0">${escapar(tituloCorpo)}</p>
 
             ${secao("Reserva cancelada", infoReserva)}
 
             ${linhasCancel.length ? secao("Cancelamento", tabelaInfo(linhasCancel)) : ""}
+
+            ${temAlternativas ? secao("Veículos equivalentes livres neste período", linhasAltHtml) : ""}
 
             <p style="margin:24px 0 0 0;color:#6b7280;font-size:13px">Acesse o sistema FROTA PML para registrar uma nova reserva se necessário.</p>`;
 

@@ -19,7 +19,8 @@ import { temCnhValida } from "@/lib/agendamento-utils";
 import { useSidebarMobile } from "@/components/sidebar";
 
 export function Topbar() {
-  const { usuario, funcao, secretaria, superintendencia, sair } = usePerfil();
+  const { usuario, funcao, secretaria, superintendencia, sair, logado } =
+    usePerfil();
   const router = useRouter();
   const { abrir: abrirSidebar } = useSidebarMobile();
   const iniciais = (usuario.nome || "?")
@@ -42,9 +43,13 @@ export function Topbar() {
         >
           <Menu className="size-5" />
         </Button>
-        <div className="min-w-0 flex-1">
-          <SeletorPerfil />
-        </div>
+        {/* Seletor de perfil é uma ferramenta do modo demonstração — some
+            quando há sessão real (cada um vê o próprio perfil). */}
+        {!logado && (
+          <div className="min-w-0 flex-1">
+            <SeletorPerfil />
+          </div>
+        )}
       </div>
 
       <DropdownMenu>

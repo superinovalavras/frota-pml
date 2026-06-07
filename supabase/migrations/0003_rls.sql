@@ -12,6 +12,9 @@
 --   4. Inclui um trigger que mantém `veiculos.status` (em_uso/disponivel) em
 --      sincronia com os agendamentos — assim a regra não depende mais do
 --      `useEffect` no cliente (que, com a RLS, não conseguiria escrever).
+--
+-- Idempotente: funções via `create or replace` e cada política com
+-- `drop policy if exists` antes do `create` — seguro reaplicar.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -53,43 +56,52 @@ drop policy if exists "tmp_all_configuracoes"     on public.configuracoes;
 -- ---------------------------------------------------------------------
 -- Dados de referência: leitura para qualquer autenticado, escrita só Master
 -- ---------------------------------------------------------------------
+drop policy if exists "sel_secretarias" on public.secretarias;
 create policy "sel_secretarias" on public.secretarias
   for select to authenticated using (true);
+drop policy if exists "wr_secretarias" on public.secretarias;
 create policy "wr_secretarias" on public.secretarias
   for all to authenticated using (public.eh_master()) with check (public.eh_master());
 
+drop policy if exists "sel_superintendencias" on public.superintendencias;
 create policy "sel_superintendencias" on public.superintendencias
   for select to authenticated using (true);
+drop policy if exists "wr_superintendencias" on public.superintendencias;
 create policy "wr_superintendencias" on public.superintendencias
   for all to authenticated using (public.eh_master()) with check (public.eh_master());
 
+drop policy if exists "sel_funcoes" on public.funcoes;
 create policy "sel_funcoes" on public.funcoes
   for select to authenticated using (true);
+drop policy if exists "wr_funcoes" on public.funcoes;
 create policy "wr_funcoes" on public.funcoes
   for all to authenticated using (public.eh_master()) with check (public.eh_master());
 
+drop policy if exists "sel_configuracoes" on public.configuracoes;
 create policy "sel_configuracoes" on public.configuracoes
   for select to authenticated using (true);
+drop policy if exists "wr_configuracoes" on public.configuracoes;
 create policy "wr_configuracoes" on public.configuracoes
   for all to authenticated using (public.eh_master()) with check (public.eh_master());
 
 -- ---------------------------------------------------------------------
 -- profiles: vê o próprio + os da mesma secretaria; Master vê todos.
--- Escrita: só Master. (Auto-edição de "Meu perfil" virá por server action
--- que restringe colunas — TODO.)
 -- ---------------------------------------------------------------------
+drop policy if exists "sel_profiles" on public.profiles;
 create policy "sel_profiles" on public.profiles
   for select to authenticated using (
     public.eh_master()
     or auth_user_id = auth.uid()
     or secretaria_id = public.minha_secretaria()
   );
+drop policy if exists "wr_profiles" on public.profiles;
 create policy "wr_profiles" on public.profiles
   for all to authenticated using (public.eh_master()) with check (public.eh_master());
 
 -- ---------------------------------------------------------------------
 -- veiculos: visibilidade = regra de lib/visibilidade.ts. Escrita só Master.
 -- ---------------------------------------------------------------------
+drop policy if exists "sel_veiculos" on public.veiculos;
 create policy "sel_veiculos" on public.veiculos
   for select to authenticated using (
     public.eh_master()
@@ -102,16 +114,14 @@ create policy "sel_veiculos" on public.veiculos
       )
     )
   );
+drop policy if exists "wr_veiculos" on public.veiculos;
 create policy "wr_veiculos" on public.veiculos
   for all to authenticated using (public.eh_master()) with check (public.eh_master());
 
 -- ---------------------------------------------------------------------
--- agendamentos:
---   SELECT: Master tudo; ou sou solicitante/motorista; ou o veículo é
---           visível para mim (a subquery em `veiculos` já aplica a RLS dele).
---   INSERT: o solicitante sou eu (ou Master) e o veículo é visível para mim.
---   UPDATE/DELETE: solicitante ou Master.
+-- agendamentos
 -- ---------------------------------------------------------------------
+drop policy if exists "sel_agendamentos" on public.agendamentos;
 create policy "sel_agendamentos" on public.agendamentos
   for select to authenticated using (
     public.eh_master()
@@ -119,15 +129,18 @@ create policy "sel_agendamentos" on public.agendamentos
     or motorista_id = public.meu_profile_id()
     or veiculo_id in (select id from public.veiculos)
   );
+drop policy if exists "ins_agendamentos" on public.agendamentos;
 create policy "ins_agendamentos" on public.agendamentos
   for insert to authenticated with check (
     (public.eh_master() or solicitante_id = public.meu_profile_id())
     and veiculo_id in (select id from public.veiculos)
   );
+drop policy if exists "upd_agendamentos" on public.agendamentos;
 create policy "upd_agendamentos" on public.agendamentos
   for update to authenticated
   using (public.eh_master() or solicitante_id = public.meu_profile_id())
   with check (public.eh_master() or solicitante_id = public.meu_profile_id());
+drop policy if exists "del_agendamentos" on public.agendamentos;
 create policy "del_agendamentos" on public.agendamentos
   for delete to authenticated
   using (public.eh_master() or solicitante_id = public.meu_profile_id());

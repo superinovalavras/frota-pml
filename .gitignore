@@ -51,3 +51,6 @@ next-env.d.ts
 
 # Claude Code: configurações locais do usuário (não compartilhar)
 .claude/settings.local.json
+
+# scratch local (geração de pptx, scripts de diagnóstico do banco)
+/.pptx-build/

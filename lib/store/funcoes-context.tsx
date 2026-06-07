@@ -21,25 +21,63 @@ interface FuncoesContextValue {
   carregando: boolean;
   /** Lista ordenada por hierarquia ascendente (1 = topo) */
   funcoesOrdenadas: Funcao[];
+  /**
+   * Funções agrupadas por nível de prioridade, em ordem (índice 0 = topo).
+   * Cargos no mesmo grupo estão EMPATADOS (mesma prioridade).
+   */
+  niveis: Funcao[][];
   buscarPorId: (id: string) => Funcao | undefined;
   salvar: (f: Funcao) => void;
   remover: (id: string) => void;
-  /** Move uma função uma posição para cima na hierarquia */
+  /** Promove a função um nível (separa do empate, se houver) */
   moverParaCima: (id: string) => void;
-  /** Move uma função uma posição para baixo na hierarquia */
+  /** Rebaixa a função um nível (separa do empate, se houver) */
   moverParaBaixo: (id: string) => void;
+  /** Empata a função com o nível imediatamente acima (mesma prioridade) */
+  empatarComAcima: (id: string) => void;
+  /** Tira a função de um empate, dando a ela um nível próprio logo abaixo */
+  separar: (id: string) => void;
 }
 
 const FuncoesContext = createContext<FuncoesContextValue | null>(null);
 
-/** Reatribui hierarquia 1..N respeitando a ordem atual e mantendo Master no topo */
-function compactarHierarquia(lista: Funcao[]): Funcao[] {
-  const ordenadas = lista.slice().sort((a, b) => {
-    if (a.ehMaster && !b.ehMaster) return -1;
-    if (!a.ehMaster && b.ehMaster) return 1;
-    return a.hierarquia - b.hierarquia;
+/**
+ * Agrupa as funções por nível de prioridade. Master fica sempre sozinho no
+ * topo. Demais funções formam grupos por valor de `hierarquia` igual (empate).
+ */
+function agrupar(funcoes: Funcao[]): Funcao[][] {
+  const master = funcoes.filter((f) => f.ehMaster);
+  const resto = funcoes
+    .filter((f) => !f.ehMaster)
+    .slice()
+    .sort((a, b) => a.hierarquia - b.hierarquia || a.nome.localeCompare(b.nome));
+  const grupos: Funcao[][] = [];
+  if (master.length) grupos.push(master);
+  let nivelAtual: number | null = null;
+  for (const f of resto) {
+    if (nivelAtual === null || f.hierarquia !== nivelAtual) {
+      grupos.push([f]);
+      nivelAtual = f.hierarquia;
+    } else {
+      grupos[grupos.length - 1].push(f);
+    }
+  }
+  return grupos;
+}
+
+/** Reatribui hierarquia 1..N a partir da ordem dos grupos, preservando empates. */
+function aplicarGrupos(grupos: Funcao[][]): Funcao[] {
+  const limpos = grupos.filter((g) => g.length > 0);
+  const out: Funcao[] = [];
+  limpos.forEach((g, i) => {
+    for (const f of g) out.push({ ...f, hierarquia: i + 1 });
   });
-  return ordenadas.map((f, i) => ({ ...f, hierarquia: i + 1 }));
+  return out;
+}
+
+/** Compacta níveis (remove buracos) mantendo os empates existentes. */
+function normalizar(lista: Funcao[]): Funcao[] {
+  return aplicarGrupos(agrupar(lista));
 }
 
 function persistir(lista: Funcao[]) {
@@ -66,9 +104,14 @@ export function FuncoesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const funcoesOrdenadas = useMemo(
-    () => funcoes.slice().sort((a, b) => a.hierarquia - b.hierarquia),
+    () =>
+      funcoes
+        .slice()
+        .sort((a, b) => a.hierarquia - b.hierarquia || a.nome.localeCompare(b.nome)),
     [funcoes],
   );
+
+  const niveis = useMemo(() => agrupar(funcoes), [funcoes]);
 
   const buscarPorId = useCallback(
     (id: string) => funcoes.find((f) => f.id === id),
@@ -80,9 +123,9 @@ export function FuncoesProvider({ children }: { children: ReactNode }) {
       const idx = atual.findIndex((x) => x.id === f.id);
       const nova =
         idx === -1 ? [...atual, f] : atual.map((x, i) => (i === idx ? f : x));
-      const compacta = compactarHierarquia(nova);
-      persistir(compacta);
-      return compacta;
+      const norm = normalizar(nova);
+      persistir(norm);
+      return norm;
     });
   }, []);
 
@@ -90,66 +133,133 @@ export function FuncoesProvider({ children }: { children: ReactNode }) {
     setFuncoes((atual) => {
       const alvo = atual.find((x) => x.id === id);
       if (!alvo || alvo.sistema) return atual;
-      const compacta = compactarHierarquia(atual.filter((x) => x.id !== id));
+      const norm = normalizar(atual.filter((x) => x.id !== id));
       removerFuncao(id)
-        .then(() => persistir(compacta))
+        .then(() => persistir(norm))
         .catch((e) => console.error("Falha ao remover função", e));
-      return compacta;
+      return norm;
     });
   }, []);
 
-  const moverParaCima = useCallback((id: string) => {
-    setFuncoes((atual) => {
-      const ordenadas = atual.slice().sort((a, b) => a.hierarquia - b.hierarquia);
-      const idx = ordenadas.findIndex((f) => f.id === id);
-      if (idx <= 0) return atual;
-      const acima = ordenadas[idx - 1];
-      if (acima.ehMaster) return atual; // Master sempre no topo
-      const nova = ordenadas.slice();
-      nova[idx - 1] = ordenadas[idx];
-      nova[idx] = acima;
-      const compacta = compactarHierarquia(nova);
-      persistir(compacta);
-      return compacta;
-    });
+  // --- operações sobre os grupos de nível ---------------------------------
+
+  const aplicar = useCallback((grupos: Funcao[][]) => {
+    const norm = aplicarGrupos(grupos);
+    persistir(norm);
+    return norm;
   }, []);
 
-  const moverParaBaixo = useCallback((id: string) => {
-    setFuncoes((atual) => {
-      const ordenadas = atual.slice().sort((a, b) => a.hierarquia - b.hierarquia);
-      const idx = ordenadas.findIndex((f) => f.id === id);
-      if (idx === -1 || idx >= ordenadas.length - 1) return atual;
-      const alvo = ordenadas[idx];
-      if (alvo.ehMaster) return atual; // Master nunca sai do topo
-      const nova = ordenadas.slice();
-      nova[idx] = ordenadas[idx + 1];
-      nova[idx + 1] = alvo;
-      const compacta = compactarHierarquia(nova);
-      persistir(compacta);
-      return compacta;
-    });
-  }, []);
+  const moverParaCima = useCallback(
+    (id: string) => {
+      setFuncoes((atual) => {
+        const grupos = agrupar(atual).map((g) => g.slice());
+        const gi = grupos.findIndex((g) => g.some((f) => f.id === id));
+        if (gi < 0) return atual;
+        const grupo = grupos[gi];
+        if (grupo.some((f) => f.ehMaster)) return atual; // Master fixo no topo
+        const masterPresente = grupos[0]?.some((f) => f.ehMaster);
+        const minIndex = masterPresente ? 1 : 0;
+        if (grupo.length > 1) {
+          // separa para um nível próprio logo acima dos ex-empatados
+          const funcao = grupo.find((f) => f.id === id)!;
+          grupos[gi] = grupo.filter((f) => f.id !== id);
+          grupos.splice(gi, 0, [funcao]);
+          return aplicar(grupos);
+        }
+        if (gi <= minIndex) return atual; // já no topo permitido
+        [grupos[gi - 1], grupos[gi]] = [grupos[gi], grupos[gi - 1]];
+        return aplicar(grupos);
+      });
+    },
+    [aplicar],
+  );
+
+  const moverParaBaixo = useCallback(
+    (id: string) => {
+      setFuncoes((atual) => {
+        const grupos = agrupar(atual).map((g) => g.slice());
+        const gi = grupos.findIndex((g) => g.some((f) => f.id === id));
+        if (gi < 0) return atual;
+        const grupo = grupos[gi];
+        if (grupo.some((f) => f.ehMaster)) return atual;
+        const maxIndex = grupos.length - 1;
+        if (grupo.length > 1) {
+          const funcao = grupo.find((f) => f.id === id)!;
+          grupos[gi] = grupo.filter((f) => f.id !== id);
+          grupos.splice(gi + 1, 0, [funcao]);
+          return aplicar(grupos);
+        }
+        if (gi >= maxIndex) return atual;
+        [grupos[gi], grupos[gi + 1]] = [grupos[gi + 1], grupos[gi]];
+        return aplicar(grupos);
+      });
+    },
+    [aplicar],
+  );
+
+  const empatarComAcima = useCallback(
+    (id: string) => {
+      setFuncoes((atual) => {
+        const grupos = agrupar(atual).map((g) => g.slice());
+        const gi = grupos.findIndex((g) => g.some((f) => f.id === id));
+        if (gi < 0) return atual;
+        const grupo = grupos[gi];
+        if (grupo.some((f) => f.ehMaster)) return atual;
+        const masterPresente = grupos[0]?.some((f) => f.ehMaster);
+        const minIndex = masterPresente ? 1 : 0;
+        if (gi <= minIndex) return atual; // nada acima para empatar (ou só Master)
+        const funcao = grupo.find((f) => f.id === id)!;
+        grupos[gi] = grupo.filter((f) => f.id !== id);
+        grupos[gi - 1] = [...grupos[gi - 1], funcao];
+        return aplicar(grupos);
+      });
+    },
+    [aplicar],
+  );
+
+  const separar = useCallback(
+    (id: string) => {
+      setFuncoes((atual) => {
+        const grupos = agrupar(atual).map((g) => g.slice());
+        const gi = grupos.findIndex((g) => g.some((f) => f.id === id));
+        if (gi < 0) return atual;
+        const grupo = grupos[gi];
+        if (grupo.length <= 1 || grupo.some((f) => f.ehMaster)) return atual;
+        const funcao = grupo.find((f) => f.id === id)!;
+        grupos[gi] = grupo.filter((f) => f.id !== id);
+        grupos.splice(gi + 1, 0, [funcao]);
+        return aplicar(grupos);
+      });
+    },
+    [aplicar],
+  );
 
   const value = useMemo<FuncoesContextValue>(
     () => ({
       funcoes,
       carregando,
       funcoesOrdenadas,
+      niveis,
       buscarPorId,
       salvar,
       remover,
       moverParaCima,
       moverParaBaixo,
+      empatarComAcima,
+      separar,
     }),
     [
       funcoes,
       carregando,
       funcoesOrdenadas,
+      niveis,
       buscarPorId,
       salvar,
       remover,
       moverParaCima,
       moverParaBaixo,
+      empatarComAcima,
+      separar,
     ],
   );
 

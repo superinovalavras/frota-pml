@@ -8,9 +8,11 @@
 -- O bucket de Storage `imagens` (público) é criado fora daqui — via script
 -- com a service_role key (ver scripts/criar-bucket.mjs). Uploads passam pela
 -- rota /api/imagens (server, service_role), então não precisam de política.
+--
+-- Idempotente: seguro rodar mesmo se a tabela já existir.
 -- =====================================================================
 
-create table public.configuracoes (
+create table if not exists public.configuracoes (
   chave         text primary key,
   valor         jsonb not null,
   atualizado_em timestamptz not null default now()
@@ -18,5 +20,6 @@ create table public.configuracoes (
 
 alter table public.configuracoes enable row level security;
 
+drop policy if exists "tmp_all_configuracoes" on public.configuracoes;
 create policy "tmp_all_configuracoes"
   on public.configuracoes for all using (true) with check (true);

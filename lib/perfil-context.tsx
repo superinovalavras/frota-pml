@@ -121,7 +121,14 @@ export function PerfilProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<PerfilContextValue>(() => {
+    // Logado: o perfil é SEMPRE o vinculado à conta — a seleção do modo
+    // demonstração (usuarioId/localStorage) é ignorada. Sem sessão, cai no
+    // comportamento de demonstração (usuário selecionado ou o primeiro).
+    const meuPerfilLogado = authUserId
+      ? usuarios.find((u) => u.authUserId === authUserId)
+      : undefined;
     const usuario =
+      meuPerfilLogado ??
       (usuarioId ? usuarios.find((u) => u.id === usuarioId) : undefined) ??
       usuarios[0] ??
       FALLBACK_USER;

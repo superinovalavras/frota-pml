@@ -8,12 +8,14 @@
 --     é feita por rotas server (service_role), o processador lê e envia.
 --
 -- Pré-requisito: migrations 0001..0003 já aplicadas.
+-- Idempotente: tabelas/índices com `if not exists`, políticas com
+-- `drop policy if exists` antes do `create`.
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
 -- MANUTENÇÕES
 -- ---------------------------------------------------------------------
-create table public.manutencoes (
+create table if not exists public.manutencoes (
   id                 text primary key default public.novo_id(),
   veiculo_id         text not null references public.veiculos(id) on delete cascade,
   motivo             text not null,
@@ -22,22 +24,18 @@ create table public.manutencoes (
   criado_em          timestamptz not null default now(),
   encerrado_em       timestamptz
 );
-create index idx_manutencoes_veiculo on public.manutencoes(veiculo_id);
-create index idx_manutencoes_ativa on public.manutencoes(veiculo_id) where encerrado_em is null;
+create index if not exists idx_manutencoes_veiculo on public.manutencoes(veiculo_id);
+create index if not exists idx_manutencoes_ativa on public.manutencoes(veiculo_id) where encerrado_em is null;
 
 -- Garante que existe no máximo uma manutenção ATIVA por veículo.
-create unique index uniq_manutencao_ativa_por_veiculo
+create unique index if not exists uniq_manutencao_ativa_por_veiculo
   on public.manutencoes(veiculo_id)
   where encerrado_em is null;
 
 -- ---------------------------------------------------------------------
 -- EMAIL OUTBOX (fila de notificações)
 -- ---------------------------------------------------------------------
--- `payload` guarda os dados completos do evento no instante em que ele
--- aconteceu (snapshot). Assunto e corpo podem ser pré-renderizados na
--- enfileirada ou preenchidos no envio.
--- ---------------------------------------------------------------------
-create table public.email_outbox (
+create table if not exists public.email_outbox (
   id                       text primary key default public.novo_id(),
   tipo_evento              text not null
                              check (tipo_evento in (
@@ -57,20 +55,16 @@ create table public.email_outbox (
                              check (status in ('pendente','enviando','enviado','falhou')),
   tentativas               int  not null default 0,
   erro_ultimo              text,
-  -- Marca o momento em que o dispatcher reclamou a linha (status='enviando').
-  -- Se um processo morrer entre o claim e o send, a linha fica em "enviando"
-  -- indefinidamente — o próximo dispatcher recupera linhas com claimed_em
-  -- antigo (timeout) e reseta pra 'pendente'.
   claimed_em               timestamptz,
   agendamento_id           text references public.agendamentos(id) on delete set null,
   veiculo_id               text references public.veiculos(id) on delete set null,
   criado_em                timestamptz not null default now(),
   enviado_em               timestamptz
 );
-create index idx_email_outbox_status_criado on public.email_outbox(status, criado_em)
+create index if not exists idx_email_outbox_status_criado on public.email_outbox(status, criado_em)
   where status = 'pendente';
-create index idx_email_outbox_agendamento on public.email_outbox(agendamento_id);
-create index idx_email_outbox_veiculo on public.email_outbox(veiculo_id);
+create index if not exists idx_email_outbox_agendamento on public.email_outbox(agendamento_id);
+create index if not exists idx_email_outbox_veiculo on public.email_outbox(veiculo_id);
 
 -- =====================================================================
 -- RLS
@@ -79,15 +73,16 @@ alter table public.manutencoes  enable row level security;
 alter table public.email_outbox enable row level security;
 
 -- ---------------------------------------------------------------------
--- manutencoes: SELECT herda a visibilidade do veículo (a subquery
--- aplica a RLS de `veiculos` automaticamente). WRITE só master ou
+-- manutencoes: SELECT herda a visibilidade do veículo. WRITE só master ou
 -- gestor da secretaria do veículo.
 -- ---------------------------------------------------------------------
+drop policy if exists "sel_manutencoes" on public.manutencoes;
 create policy "sel_manutencoes" on public.manutencoes
   for select to authenticated using (
     veiculo_id in (select id from public.veiculos)
   );
 
+drop policy if exists "wr_manutencoes" on public.manutencoes;
 create policy "wr_manutencoes" on public.manutencoes
   for all to authenticated
   using (
@@ -118,5 +113,6 @@ create policy "wr_manutencoes" on public.manutencoes
 -- service_role (a RLS bloqueia clientes autenticados — as APIs server
 -- usam a chave admin, que ignora RLS).
 -- ---------------------------------------------------------------------
+drop policy if exists "sel_email_outbox_master" on public.email_outbox;
 create policy "sel_email_outbox_master" on public.email_outbox
   for select to authenticated using (public.eh_master());
