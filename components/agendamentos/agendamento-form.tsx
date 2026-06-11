@@ -37,6 +37,7 @@ import {
   podeDirigirVeiculo,
 } from "@/lib/agendamento-utils";
 import { formatHora, formatTelefone } from "@/lib/formatters";
+import { NOTIFICACOES_EMAIL_ATIVAS } from "@/lib/flags";
 import type { Agendamento, Passageiro, Veiculo } from "@/lib/mock/types";
 import { PassageirosSection } from "./passageiros-section";
 
@@ -639,9 +640,9 @@ export function AgendamentoForm({
                 )}
                 {podeSubstituir && (
                   <p className="mt-2 text-xs text-amber-900 dark:text-amber-100">
-                    Sua hierarquia é superior. Você pode substituir esta
-                    reserva — quem perdeu receberá um email automático
-                    explicando o motivo.
+                    {NOTIFICACOES_EMAIL_ATIVAS
+                      ? "Sua hierarquia é superior. Você pode substituir esta reserva — quem perdeu receberá um email automático explicando o motivo."
+                      : "Sua hierarquia é superior. Você pode substituir esta reserva — use o telefone acima para avisar quem fez a reserva original."}
                   </p>
                 )}
               </div>
@@ -768,8 +769,8 @@ export function AgendamentoForm({
             excluirIds={excluirIdsPassageiros}
           />
 
-          {/* Aviso de notificação por email */}
-          {totalUsuariosNotificar > 0 && (
+          {/* Aviso de notificação por email — dormente junto com o pipeline */}
+          {NOTIFICACOES_EMAIL_ATIVAS && totalUsuariosNotificar > 0 && (
             <div className="md:col-span-2 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/30 p-3 text-sm">
               <Mail className="size-4 text-sky-700 dark:text-sky-300 shrink-0 mt-0.5" />
               <div>

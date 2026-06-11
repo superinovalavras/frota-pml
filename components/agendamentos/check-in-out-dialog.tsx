@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAgendamentos } from "@/lib/store/agendamentos-context";
 import { useVeiculos } from "@/lib/store/veiculos-context";
 import { lerImagemRedimensionada } from "@/lib/imagem";
+import { REGISTRO_PAINEL_ATIVO } from "@/lib/flags";
 import type { Agendamento } from "@/lib/mock/types";
 
 export type TipoCheck = "saida" | "retorno";
@@ -88,26 +89,32 @@ export function CheckInOutDialog({
   async function aoConfirmar() {
     if (!agendamento || !tipo) return;
 
-    if (km.trim() === "") {
-      setErro("Informe a quilometragem.");
-      return;
-    }
-    const kmNum = Number(km);
-    if (!Number.isFinite(kmNum) || kmNum < 0) {
-      setErro("Informe um valor válido de quilometragem.");
-      return;
-    }
-    if (kmNum < kmMinimo) {
-      setErro(
-        tipo === "retorno"
-          ? `O km de retorno (${kmNum}) não pode ser menor que o km de saída (${kmMinimo}).`
-          : `O km informado (${kmNum}) é menor que o km atual do veículo (${kmMinimo}).`,
-      );
-      return;
-    }
-    if (!fotoUrl) {
-      setErro("A foto do painel é obrigatória.");
-      return;
+    // Foto + km só são exigidos quando o registro do painel está ativo
+    // (REGISTRO_PAINEL_ATIVO em lib/flags.ts). Desligado, o check vira um
+    // clique: a portaria anota o km manualmente.
+    let kmNum: number | undefined;
+    if (REGISTRO_PAINEL_ATIVO) {
+      if (km.trim() === "") {
+        setErro("Informe a quilometragem.");
+        return;
+      }
+      kmNum = Number(km);
+      if (!Number.isFinite(kmNum) || kmNum < 0) {
+        setErro("Informe um valor válido de quilometragem.");
+        return;
+      }
+      if (kmNum < kmMinimo) {
+        setErro(
+          tipo === "retorno"
+            ? `O km de retorno (${kmNum}) não pode ser menor que o km de saída (${kmMinimo}).`
+            : `O km informado (${kmNum}) é menor que o km atual do veículo (${kmMinimo}).`,
+        );
+        return;
+      }
+      if (!fotoUrl) {
+        setErro("A foto do painel é obrigatória.");
+        return;
+      }
     }
 
     const agora = new Date().toISOString();
@@ -159,10 +166,13 @@ export function CheckInOutDialog({
 
   const titulo =
     tipo === "saida" ? "Check-in — saída do veículo" : "Check-out — retorno do veículo";
-  const descricao =
-    tipo === "saida"
+  const descricao = REGISTRO_PAINEL_ATIVO
+    ? tipo === "saida"
       ? "Registre a quilometragem na partida com uma foto do painel."
-      : "Registre a quilometragem na devolução com uma foto do painel.";
+      : "Registre a quilometragem na devolução com uma foto do painel."
+    : tipo === "saida"
+      ? "Confirme a retirada do veículo. Se quiser, deixe uma observação."
+      : "Confirme a devolução do veículo. Se quiser, deixe uma observação.";
   const rotuloBotao = tipo === "saida" ? "Iniciar viagem" : "Concluir viagem";
 
   return (
@@ -174,6 +184,10 @@ export function CheckInOutDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Foto do painel + km — dormentes enquanto REGISTRO_PAINEL_ATIVO
+              for false (a portaria anota o km manualmente). */}
+          {REGISTRO_PAINEL_ATIVO && (
+          <>
           {/* Foto do painel */}
           <div className="space-y-2">
             <Label>Foto do painel (odômetro)</Label>
@@ -259,6 +273,8 @@ export function CheckInOutDialog({
                 : `Último km registrado: ${veiculo?.kmAtual ?? 0}`}
             </p>
           </div>
+          </>
+          )}
 
           {/* Observações */}
           <div className="space-y-2">

@@ -30,6 +30,7 @@ import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import { filtrarVeiculosVisiveis } from "@/lib/visibilidade";
 import {
   formatHora,
+  formatTelefone,
   corStatusAgendamento,
   corStatusVeiculo,
   rotuloStatusVeiculo,
@@ -44,6 +45,8 @@ const HORA_INICIO = 6;
 const HORA_FIM = 20;
 const ALTURA_HORA = 56;
 const TOTAL_MINUTOS = (HORA_FIM - HORA_INICIO + 1) * 60;
+/** Altura total da grade de horas (px) — usada pelo bloco de "dia todo". */
+const ALTURA_GRADE = (HORA_FIM - HORA_INICIO + 1) * ALTURA_HORA;
 
 const DIAS_SEMANA = [
   "Segunda",
@@ -161,9 +164,6 @@ export function AgendaSemanal() {
       return t >= ini && t < fimMs;
     });
   }, [agendamentosFiltrados, inicioSemana]);
-
-  const agsDiaTodoSemana = agendamentosNaSemana.filter((a) => a.diaTodo);
-  const temDiaTodoNaSemana = agsDiaTodoSemana.length > 0;
 
   function navegar(deltaDias: number) {
     const d = new Date(referencia);
@@ -357,41 +357,6 @@ export function AgendaSemanal() {
             })}
           </div>
 
-          {/* Faixa "Dia todo" */}
-          {temDiaTodoNaSemana && (
-            <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/15">
-              <div className="border-r flex items-center justify-end gap-1 pr-2 text-[10px] uppercase text-muted-foreground py-1">
-                <Sun className="size-3" />
-                Dia todo
-              </div>
-              {dias.map((dia, i) => {
-                const ehHoje = isSameDay(dia, hoje);
-                const ags = agsDiaTodoSemana.filter((a) =>
-                  isSameDay(new Date(a.inicio), dia),
-                );
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      "border-r last:border-r-0 px-1 py-1 space-y-0.5 min-h-[28px]",
-                      ehHoje && "bg-primary/5",
-                    )}
-                  >
-                    {ags.map((a) => (
-                      <EventoDiaTodo
-                        key={a.id}
-                        agendamento={a}
-                        veiculos={veiculos}
-                        buscarUsuario={buscarUsuario}
-                        onClick={() => setDetalhe(a)}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {/* Grade horária — sem scroll interno */}
           <div className="relative grid grid-cols-[60px_repeat(7,1fr)]">
             <div className="border-r">
@@ -407,8 +372,8 @@ export function AgendaSemanal() {
             </div>
 
             {dias.map((dia, i) => {
-              const agsDoDia = agendamentosNaSemana.filter(
-                (a) => !a.diaTodo && isSameDay(new Date(a.inicio), dia),
+              const agsDoDia = agendamentosNaSemana.filter((a) =>
+                isSameDay(new Date(a.inicio), dia),
               );
               const ehHoje = isSameDay(dia, hoje);
               return (
@@ -476,6 +441,15 @@ function DiaColuna({
   onClickVazio: (dia: Date, e: React.MouseEvent) => void;
   buscarUsuario: (id: string) => Usuario | undefined;
 }) {
+  const agsDiaTodo = agendamentos.filter((a) => a.diaTodo);
+  const agsTimed = agendamentos.filter((a) => !a.diaTodo);
+  const temTimed = agsTimed.length > 0;
+  const nAll = agsDiaTodo.length;
+  // Faixas lado a lado: uma por reserva de dia todo + (se houver) uma para as
+  // reservas com horário. Assim nada se sobrepõe.
+  const totalFaixas = nAll + (temTimed ? 1 : 0);
+  const larguraFaixa = totalFaixas > 0 ? 100 / totalFaixas : 100;
+
   return (
     <div
       onClick={(e) => onClickVazio(dia, e)}
@@ -506,47 +480,99 @@ function DiaColuna({
         </div>
       )}
 
-      {agendamentos.map((a) => (
-        <EventoBloco
+      {/* Reservas de DIA TODO — ocupam a coluna inteira (altura total). */}
+      {agsDiaTodo.map((a, idx) => (
+        <EventoCard
           key={a.id}
           agendamento={a}
           veiculos={veiculos}
           buscarUsuario={buscarUsuario}
+          altura={ALTURA_GRADE}
+          posStyle={{
+            left: `calc(${idx * larguraFaixa}% + 2px)`,
+            width: `calc(${larguraFaixa}% - 4px)`,
+            top: 0,
+            height: ALTURA_GRADE,
+          }}
           onClick={(e) => {
             e.stopPropagation();
             onSelect(a);
           }}
         />
       ))}
+
+      {/* Reservas com HORÁRIO — na faixa restante à direita das de dia todo. */}
+      <div
+        className="absolute inset-y-0"
+        style={{ left: `${nAll * larguraFaixa}%`, right: 0 }}
+      >
+        {agsTimed.map((a) => {
+          const ini = new Date(a.inicio);
+          const f = new Date(a.fim);
+          const mIni = (ini.getHours() - HORA_INICIO) * 60 + ini.getMinutes();
+          const mFim = (f.getHours() - HORA_INICIO) * 60 + f.getMinutes();
+          const top = Math.max(0, (mIni / 60) * ALTURA_HORA);
+          const altura = Math.max(24, ((mFim - mIni) / 60) * ALTURA_HORA);
+          return (
+            <EventoCard
+              key={a.id}
+              agendamento={a}
+              veiculos={veiculos}
+              buscarUsuario={buscarUsuario}
+              altura={altura}
+              posClass="left-1 right-1"
+              posStyle={{ top, height: altura }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(a);
+              }}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function EventoBloco({
+/**
+ * Bloco de reserva na agenda. A foto do veículo vira o FUNDO (object-cover),
+ * adaptando-se a qualquer tamanho — de uma reserva de 1h até "dia todo".
+ * Sem foto, mantém o fundo colorido do status. A borda esquerda sempre
+ * indica o status.
+ */
+function EventoCard({
   agendamento: a,
   veiculos,
   buscarUsuario,
+  altura,
+  posClass,
+  posStyle,
   onClick,
 }: {
   agendamento: Agendamento;
   veiculos: Veiculo[];
   buscarUsuario: (id: string) => Usuario | undefined;
+  /** Altura do bloco (px) — decide quantas infos cabem. */
+  altura: number;
+  /** Classes de posição (ex.: "left-1 right-1" para reservas com horário). */
+  posClass?: string;
+  /** Estilo de posição (top/height; para dia todo também left/width). */
+  posStyle: React.CSSProperties;
   onClick: (e: React.MouseEvent) => void;
 }) {
-  const inicio = new Date(a.inicio);
-  const fim = new Date(a.fim);
-  const minutosInicio =
-    (inicio.getHours() - HORA_INICIO) * 60 + inicio.getMinutes();
-  const minutosFim = (fim.getHours() - HORA_INICIO) * 60 + fim.getMinutes();
-  const top = Math.max(0, (minutosInicio / 60) * ALTURA_HORA);
-  const altura = Math.max(
-    24,
-    ((minutosFim - minutosInicio) / 60) * ALTURA_HORA,
-  );
-
   const veiculo = veiculos.find((v) => v.id === a.veiculoId);
   const motorista = (a.motoristaId ? buscarUsuario(a.motoristaId) : null) ?? null;
-  const primeiroNomeMotorista = motorista?.nome.split(" ")[0];
+  const solicitante = buscarUsuario(a.solicitanteId);
+  const foto = veiculo?.fotoUrl;
+  const isDiaTodo = !!a.diaTodo;
+  const nomeVeic = veiculo
+    ? `${veiculo.placa} · ${veiculo.modelo}`
+    : "Veículo removido";
+  const tempo = isDiaTodo
+    ? "Dia todo"
+    : `${formatHora(a.inicio)}–${formatHora(a.fim)}`;
+  // Com foto + horário: texto embaixo (sobre o degradê). Caso contrário, topo.
+  const alinhar = !foto || isDiaTodo ? "justify-start" : "justify-end";
 
   return (
     <Tooltip>
@@ -556,73 +582,83 @@ function EventoBloco({
           data-evento-bloco
           onClick={onClick}
           className={cn(
-            "absolute left-1 right-1 rounded-md border-l-4 px-2 py-1 text-left overflow-hidden",
+            "absolute rounded-md border-l-4 overflow-hidden text-left",
             "shadow-sm hover:shadow-md hover:z-20 hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer",
+            posClass,
             corStatusAgendamento(a.status),
+            foto && "text-white",
           )}
-          style={{ top, height: altura }}
+          style={posStyle}
         >
-          <div className="text-[11px] font-semibold leading-tight truncate">
-            {formatHora(a.inicio)}–{formatHora(a.fim)}
-          </div>
-          <div className="text-xs font-medium leading-tight truncate">
-            {a.destino}
-          </div>
-          {altura > 50 && veiculo && (
-            <div className="text-[10px] opacity-80 leading-tight truncate">
-              {veiculo.placa} · {veiculo.modelo}
-            </div>
+          {foto && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={foto}
+                alt={nomeVeic}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div
+                className={cn(
+                  "absolute inset-0",
+                  isDiaTodo
+                    ? "bg-gradient-to-b from-black/80 via-black/35 to-transparent"
+                    : "bg-gradient-to-t from-black/80 via-black/35 to-transparent",
+                )}
+              />
+            </>
           )}
-          {altura > 70 && primeiroNomeMotorista && (
-            <div className="text-[10px] opacity-75 leading-tight truncate italic">
-              {primeiroNomeMotorista}
+
+          <div
+            className={cn(
+              "relative h-full flex flex-col gap-0.5 px-1.5 py-1",
+              alinhar,
+            )}
+          >
+            <div
+              className={cn(
+                "leading-tight truncate flex items-center gap-1",
+                isDiaTodo
+                  ? "text-[10px] font-semibold uppercase tracking-wide"
+                  : "text-[11px] font-semibold",
+              )}
+            >
+              {isDiaTodo && <Sun className="size-3 shrink-0" />}
+              {tempo}
             </div>
-          )}
+
+            <div className="text-xs font-semibold leading-tight truncate">
+              {a.destino}
+            </div>
+
+            {altura > 60 && (
+              <div className="flex items-center gap-1 text-[10px] opacity-90 leading-tight truncate">
+                <Car className="size-3 shrink-0" />
+                <span className="truncate">{nomeVeic}</span>
+              </div>
+            )}
+
+            {isDiaTodo && (
+              <div className="flex items-center gap-1 text-[10px] opacity-90 leading-tight truncate">
+                <Clock className="size-3 shrink-0" />
+                Volta {formatHora(a.fim)}
+              </div>
+            )}
+
+            {altura > 88 && solicitante && (
+              <div className="flex items-center gap-1 text-[10px] italic opacity-80 leading-tight truncate">
+                <IdCard className="size-3 shrink-0" />
+                <span className="truncate">{solicitante.nome}</span>
+              </div>
+            )}
+          </div>
         </button>
       </TooltipTrigger>
       <TooltipContentRico
         agendamento={a}
         veiculo={veiculo}
         motorista={motorista}
-        solicitante={buscarUsuario(a.solicitanteId)}
-      />
-    </Tooltip>
-  );
-}
-
-function EventoDiaTodo({
-  agendamento: a,
-  veiculos,
-  buscarUsuario,
-  onClick,
-}: {
-  agendamento: Agendamento;
-  veiculos: Veiculo[];
-  buscarUsuario: (id: string) => Usuario | undefined;
-  onClick: () => void;
-}) {
-  const veiculo = veiculos.find((v) => v.id === a.veiculoId);
-  const motorista = (a.motoristaId ? buscarUsuario(a.motoristaId) : null) ?? null;
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          className={cn(
-            "block w-full text-left text-[11px] rounded px-1.5 py-0.5 truncate border-l-4 hover:ring-2 hover:ring-primary/30 transition-shadow",
-            corStatusAgendamento(a.status),
-          )}
-        >
-          {a.destino}
-        </button>
-      </TooltipTrigger>
-      <TooltipContentRico
-        agendamento={a}
-        veiculo={veiculo}
-        motorista={motorista}
-        solicitante={buscarUsuario(a.solicitanteId)}
+        solicitante={solicitante}
       />
     </Tooltip>
   );
@@ -679,7 +715,11 @@ function TooltipContentRico({
           </div>
         </div>
         <div className="border-t border-background/20 pt-1.5 opacity-60 text-[11px]">
-          Solicitante: {solicitante?.nome ?? "—"} · clique para ver tudo
+          Solicitante: {solicitante?.nome ?? "—"}
+          {solicitante?.telefone
+            ? ` · ${formatTelefone(solicitante.telefone)}`
+            : ""}{" "}
+          · clique para ver tudo
         </div>
       </div>
     </TooltipContent>

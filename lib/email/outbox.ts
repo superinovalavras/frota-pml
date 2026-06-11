@@ -7,6 +7,7 @@
  */
 import "server-only";
 import { criarSupabaseAdmin } from "@/lib/supabase/server";
+import { NOTIFICACOES_EMAIL_ATIVAS } from "@/lib/flags";
 import type { EmailEventoTipo } from "@/lib/mock/types";
 
 interface DadosDestinatario {
@@ -31,6 +32,8 @@ interface EnfileirarEntradaArgs {
 export async function enfileirarEmail(
   args: EnfileirarEntradaArgs,
 ): Promise<void> {
+  // Notificações dormentes (lib/flags.ts) — não enfileira nada.
+  if (!NOTIFICACOES_EMAIL_ATIVAS) return;
   const email = args.destinatario.email.trim().toLowerCase();
   if (!email || !email.includes("@")) {
     // Sem email válido, não há como notificar — silencia para não bloquear
@@ -64,6 +67,8 @@ export async function enfileirarEmailLote(
   destinatarios: DadosDestinatario[],
   comum: Omit<EnfileirarEntradaArgs, "destinatario">,
 ): Promise<void> {
+  // Notificações dormentes (lib/flags.ts) — não enfileira nada.
+  if (!NOTIFICACOES_EMAIL_ATIVAS) return;
   const vistos = new Set<string>();
   const unicos: DadosDestinatario[] = [];
   for (const d of destinatarios) {

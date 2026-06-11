@@ -13,6 +13,7 @@
  */
 import "server-only";
 import { criarSupabaseAdmin } from "@/lib/supabase/server";
+import { NOTIFICACOES_EMAIL_ATIVAS } from "@/lib/flags";
 import { enviarEmail } from "./enviar";
 import { renderizarTemplate } from "./templates";
 import type { EmailEventoTipo } from "@/lib/mock/types";
@@ -32,6 +33,10 @@ export interface ResumoProcessamento {
 export async function processarFila(
   opcoes: { limite?: number } = {},
 ): Promise<ResumoProcessamento> {
+  // Notificações dormentes (lib/flags.ts) — nem o cron envia nada.
+  if (!NOTIFICACOES_EMAIL_ATIVAS) {
+    return { total: 0, enviados: 0, falhados: 0, abandonados: 0 };
+  }
   const limite = opcoes.limite ?? LIMITE_LOTE_PADRAO;
   const admin = criarSupabaseAdmin();
 

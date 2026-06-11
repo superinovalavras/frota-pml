@@ -15,6 +15,7 @@ import { StatusBadge } from "./status-badge";
 import {
   formatHora,
   formatDataExtenso,
+  formatTelefone,
   rotuloStatusAgendamento,
 } from "@/lib/formatters";
 import { useVeiculos } from "@/lib/store/veiculos-context";
@@ -28,12 +29,17 @@ import {
   formatDuracao,
 } from "@/lib/agendamento-utils";
 import { useSuperintendencias } from "@/lib/store/superintendencias-context";
-import type { Agendamento, StatusAgendamento } from "@/lib/mock/types";
+import type {
+  Agendamento,
+  StatusAgendamento,
+  Usuario,
+} from "@/lib/mock/types";
 import {
   CheckInOutDialog,
   type TipoCheck,
 } from "@/components/agendamentos/check-in-out-dialog";
 import { useConfirmacao } from "@/components/confirmacao-provider";
+import { NOTIFICACOES_EMAIL_ATIVAS, REGISTRO_PAINEL_ATIVO } from "@/lib/flags";
 import {
   Car,
   Clock,
@@ -87,8 +93,9 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
     if (!agendamento) return;
     const ok = await confirmar({
       titulo: "Cancelar esta reserva?",
-      mensagem:
-        "Solicitante, motorista e passageiros usuários serão notificados por email.",
+      mensagem: NOTIFICACOES_EMAIL_ATIVAS
+        ? "Solicitante, motorista e passageiros usuários serão notificados por email."
+        : "Avise os envolvidos pelo telefone exibido na reserva, se necessário.",
       destrutivo: true,
       rotuloOk: "Cancelar reserva",
     });
@@ -234,12 +241,7 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
           <Separator />
 
           <Row icon={User} label="Solicitante">
-            {solicitante?.nome ?? "—"}
-            {solicitante?.cargo && (
-              <span className="block text-xs text-muted-foreground">
-                {solicitante.cargo}
-              </span>
-            )}
+            {solicitante ? <PessoaInfo usuario={solicitante} /> : "—"}
           </Row>
           <Row icon={Building2} label="Órgão">
             {orgao?.nome ?? "—"}
@@ -251,15 +253,7 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
           </Row>
           <Row icon={IdCard} label="Motorista">
             {motorista ? (
-              <>
-                {motorista.nome}
-                {motorista.cnhCategoria && (
-                  <span className="block text-xs text-muted-foreground">
-                    CNH {motorista.cnhCategoria}
-                    {motorista.cnhNumero ? ` · ${motorista.cnhNumero}` : ""}
-                  </span>
-                )}
-              </>
+              <PessoaInfo usuario={motorista} />
             ) : (
               <span className="text-muted-foreground">Não designado</span>
             )}
@@ -280,56 +274,42 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
                     Sem passageiros listados.
                   </p>
                 ) : (
-                  <ul className="mt-1 space-y-1">
+                  <ul className="mt-1 space-y-2">
                     {passageiros.map((p, i) => {
                       if (p.tipo === "usuario") {
                         const u = buscarUsuario(p.usuarioId);
-                        const o = u ? buscarOrgao(u.secretariaId) : null;
                         return (
-                          <li
-                            key={i}
-                            className="flex items-center gap-2 text-sm"
-                          >
-                            <User className="size-3.5 text-muted-foreground" />
-                            <span className="flex-1 min-w-0 truncate">
-                              {u?.nome ?? "Usuário removido"}
-                              {u?.cargo && (
-                                <span className="text-muted-foreground">
-                                  {" "}
-                                  · {u.cargo}
+                          <li key={i} className="flex items-start gap-2">
+                            <User className="size-3.5 text-muted-foreground mt-1 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              {u ? (
+                                <PessoaInfo usuario={u} />
+                              ) : (
+                                <span className="text-sm text-muted-foreground">
+                                  Usuário removido
                                 </span>
                               )}
-                              {o && (
-                                <span className="text-muted-foreground">
-                                  {" "}
-                                  · {o.sigla}
-                                </span>
-                              )}
-                            </span>
+                            </div>
                           </li>
                         );
                       }
                       return (
-                        <li
-                          key={i}
-                          className="flex items-center gap-2 text-sm"
-                        >
-                          <UserPlus className="size-3.5 text-muted-foreground" />
-                          <span className="flex-1 min-w-0 truncate">
+                        <li key={i} className="flex items-start gap-2">
+                          <UserPlus className="size-3.5 text-muted-foreground mt-1 shrink-0" />
+                          <div className="flex-1 min-w-0 text-sm">
                             {p.nome}
-                            {p.motivo && (
-                              <span className="text-muted-foreground">
-                                {" "}
-                                · {p.motivo}
-                              </span>
-                            )}
                             <Badge
                               variant="outline"
                               className="ml-2 text-[10px]"
                             >
                               Convidado
                             </Badge>
-                          </span>
+                            {p.motivo && (
+                              <span className="block text-xs text-muted-foreground">
+                                {p.motivo}
+                              </span>
+                            )}
+                          </div>
                         </li>
                       );
                     })}
@@ -399,7 +379,9 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
                     : s === "concluido"
                       ? "secondary"
                       : "default";
-                const exigeCheck = s === "em_andamento" || s === "concluido";
+                const exigeCheck =
+                  REGISTRO_PAINEL_ATIVO &&
+                  (s === "em_andamento" || s === "concluido");
                 return (
                   <Button
                     key={s}
@@ -539,6 +521,32 @@ function RegistroCheck({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Bloco padrão de pessoa na reserva (solicitante, motorista, passageiro):
+ * nome → cargo → celular, de cima para baixo. O celular é um link `tel:`
+ * (no celular, toca direto) — substitui as notificações por email.
+ */
+function PessoaInfo({ usuario }: { usuario: Usuario }) {
+  return (
+    <div className="min-w-0">
+      <span className="block text-sm truncate">{usuario.nome}</span>
+      {usuario.cargo && (
+        <span className="block text-xs text-muted-foreground truncate">
+          {usuario.cargo}
+        </span>
+      )}
+      {usuario.telefone && (
+        <a
+          href={`tel:${usuario.telefone.replace(/\D/g, "")}`}
+          className="block text-xs text-primary hover:underline"
+        >
+          {formatTelefone(usuario.telefone)}
+        </a>
+      )}
     </div>
   );
 }
