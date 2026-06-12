@@ -93,13 +93,19 @@ export function MarcaTab() {
               Logo atual
             </p>
             <div className="flex items-center gap-4">
-              <div className="size-24 rounded-xl bg-white ring-1 ring-border flex items-center justify-center p-2 shrink-0">
+              <div
+                className={
+                  logoUrl
+                    ? "size-24 rounded-full bg-white ring-1 ring-border overflow-hidden shrink-0"
+                    : "size-24 rounded-xl bg-white ring-1 ring-border flex items-center justify-center p-2 shrink-0"
+                }
+              >
                 {logoUrl ? (
                   /* eslint-disable-next-line @next/next/no-img-element */
                   <img
                     src={logoUrl}
                     alt="Logo personalizada"
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   /* eslint-disable-next-line @next/next/no-img-element */

@@ -49,7 +49,7 @@ export default function LoginPage() {
               <img
                 src={logoUrl}
                 alt="Logo"
-                className="mx-auto h-40 w-auto object-contain rounded-md bg-white/95 p-2"
+                className="mx-auto size-40 object-cover rounded-full bg-white shadow-lg"
               />
             ) : (
               <Image

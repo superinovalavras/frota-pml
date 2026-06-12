@@ -95,10 +95,12 @@ function ConteudoSidebar({
         >
           <div
             className={cn(
-              "size-12 rounded-2xl flex items-center justify-center p-1.5 shadow-md ring-1 transition-transform group-hover:scale-105 shrink-0",
+              "size-12 flex items-center justify-center shadow-md ring-1 transition-transform group-hover:scale-105 shrink-0 overflow-hidden",
+              // Logo personalizada: círculo sem padding — a imagem preenche
+              // todo o espaço (a logo é recortada em moldura redonda).
               logoUrl
-                ? "bg-white ring-border"
-                : "bg-pml-blue ring-pml-blue/20",
+                ? "rounded-full bg-white ring-border"
+                : "rounded-2xl p-1.5 bg-pml-blue ring-pml-blue/20",
             )}
           >
             {logoUrl ? (
@@ -106,7 +108,7 @@ function ConteudoSidebar({
               <img
                 src={logoUrl}
                 alt="Logo"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover"
               />
             ) : (
               <Image
