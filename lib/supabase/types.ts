@@ -135,6 +135,28 @@ type EmailOutboxRow = {
   enviado_em: string | null;
 };
 
+export type NotificacaoTipoDb =
+  | "motorista_designado"
+  | "reserva_confirmada"
+  | "reserva_cancelada"
+  | "reserva_substituida"
+  | "veiculo_manutencao"
+  | "veiculo_liberado"
+  | "passageiro_adicionado"
+  | "passageiro_removido";
+
+type NotificacaoRow = {
+  id: string;
+  destinatario_id: string;
+  tipo: NotificacaoTipoDb;
+  titulo: string;
+  mensagem: string;
+  agendamento_id: string | null;
+  veiculo_id: string | null;
+  lida: boolean;
+  criado_em: string;
+};
+
 type AgendamentoRow = {
   id: string;
   veiculo_id: string;
@@ -180,6 +202,7 @@ export type Database = {
       configuracoes: TableShape<ConfiguracaoRow>;
       manutencoes: TableShape<ManutencaoRow>;
       email_outbox: TableShape<EmailOutboxRow>;
+      notificacoes: TableShape<NotificacaoRow>;
     };
     Views: { [_ in never]: never };
     Functions: {

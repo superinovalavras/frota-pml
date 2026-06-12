@@ -40,6 +40,7 @@ import {
 } from "@/components/agendamentos/check-in-out-dialog";
 import { useConfirmacao } from "@/components/confirmacao-provider";
 import { NOTIFICACOES_EMAIL_ATIVAS, REGISTRO_PAINEL_ATIVO } from "@/lib/flags";
+import { notificarReservaConfirmada } from "@/lib/notificar-eventos";
 import {
   Car,
   Clock,
@@ -399,6 +400,15 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
                         void aoCancelar();
                       } else {
                         alterarStatus(agendamento.id, s);
+                        if (s === "confirmado") {
+                          // Sino: avisa solicitante e motorista (exceto quem
+                          // está confirmando).
+                          notificarReservaConfirmada(
+                            { ...agendamento, status: "confirmado" },
+                            veiculo,
+                            usuarioAtual.id,
+                          );
+                        }
                         onClose();
                       }
                     }}

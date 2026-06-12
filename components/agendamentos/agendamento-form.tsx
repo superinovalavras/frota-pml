@@ -38,6 +38,7 @@ import {
 } from "@/lib/agendamento-utils";
 import { formatHora, formatTelefone } from "@/lib/formatters";
 import { NOTIFICACOES_EMAIL_ATIVAS } from "@/lib/flags";
+import { notificarMotoristaDesignado } from "@/lib/notificar-eventos";
 import type { Agendamento, Passageiro, Veiculo } from "@/lib/mock/types";
 import { PassageirosSection } from "./passageiros-section";
 
@@ -382,6 +383,27 @@ export function AgendamentoForm({
         statusSalvo = statusInicial;
       }
 
+      // Notificação interna: motorista designado (novo ou trocado). Vale
+      // mesmo em "pendente" — o motorista fica sabendo desde já.
+      const motoristaAntes = agendamento?.motoristaId ?? null;
+      if (
+        v.dadosBase.motoristaId &&
+        v.dadosBase.motoristaId !== v.dadosBase.solicitanteId &&
+        v.dadosBase.motoristaId !== motoristaAntes
+      ) {
+        notificarMotoristaDesignado(
+          {
+            ...v.dadosBase,
+            id: agendamentoIdSalvo,
+            status: statusSalvo as Agendamento["status"],
+            criadoEm: new Date().toISOString(),
+          },
+          veiculo,
+          solicitante,
+          usuarioAtual.id,
+        );
+      }
+
       // Só notifica passageiros se a reserva já saiu da fila de aprovação.
       // Reservas em "pendente" podem ser recusadas pelo gestor — avisar
       // passageiros antes disso gera mensagens prematuras.
@@ -441,6 +463,23 @@ export function AgendamentoForm({
       if (json.novoId) {
         const { adicionadosIds } = diffPassageirosUsuario([], passageiros);
         dispararNotificacaoPassageiros(json.novoId, adicionadosIds, []);
+        // Motorista da nova reserva também é avisado.
+        if (
+          v.dadosBase.motoristaId &&
+          v.dadosBase.motoristaId !== v.dadosBase.solicitanteId
+        ) {
+          notificarMotoristaDesignado(
+            {
+              ...v.dadosBase,
+              id: json.novoId,
+              status: "confirmado",
+              criadoEm: new Date().toISOString(),
+            },
+            veiculo,
+            solicitante,
+            usuarioAtual.id,
+          );
+        }
       }
 
       onClose();
@@ -743,12 +782,14 @@ export function AgendamentoForm({
                     Sem CNH própria — escolha um motorista
                   </SelectItem>
                 )}
-                {motoristasDisponiveis.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.nome}
-                    {m.cnhCategoria ? ` · CNH ${m.cnhCategoria}` : ""}
-                  </SelectItem>
-                ))}
+                {motoristasDisponiveis
+                  .filter((m) => m.id !== solicitanteId)
+                  .map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome}
+                      {m.cnhCategoria ? ` · CNH ${m.cnhCategoria}` : ""}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             {motoristaId === MOTORISTA_EU &&

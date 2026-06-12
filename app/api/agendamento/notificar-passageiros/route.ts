@@ -18,6 +18,7 @@ import { criarSupabaseAdmin } from "@/lib/supabase/server";
 import { obterAtor } from "@/lib/api/autenticar";
 import { enfileirarEmailLote } from "@/lib/email/outbox";
 import { processarFila } from "@/lib/email/dispatcher";
+import { inserirNotificacoes, resumoReservaServer } from "@/lib/notificar-server";
 import { timestamptzParaIsoLocal } from "@/lib/data/mappers";
 import type { Passageiro } from "@/lib/mock/types";
 
@@ -173,6 +174,41 @@ export async function POST(req: Request) {
     localPartida: reserva.local_partida,
     localDevolucao: reserva.local_devolucao,
   };
+
+  // Notificações internas (sino) — adicionados e removidos.
+  const resumoSino = resumoReservaServer({
+    inicio: reservaPayload.inicio,
+    fim: reservaPayload.fim,
+    diaTodo: reservaPayload.diaTodo,
+    destino: reservaPayload.destino,
+    veiculoPlaca: veiculoEmail.placa,
+    veiculoNome: veiculoEmail.nome,
+  });
+  await inserirNotificacoes(
+    admin,
+    [
+      ...adicionados.map((destinatarioId) => ({
+        destinatarioId,
+        tipo: "passageiro_adicionado" as const,
+        titulo: "Você foi incluído(a) em uma viagem",
+        mensagem:
+          resumoSino +
+          (solicitante ? `\nSolicitante: ${solicitante.nome}` : "") +
+          (motorista ? `\nMotorista: ${motorista.nome}` : ""),
+        agendamentoId: reserva.id,
+        veiculoId: reserva.veiculo_id,
+      })),
+      ...removidos.map((destinatarioId) => ({
+        destinatarioId,
+        tipo: "passageiro_removido" as const,
+        titulo: "Você foi retirado(a) de uma viagem",
+        mensagem: resumoSino,
+        agendamentoId: reserva.id,
+        veiculoId: reserva.veiculo_id,
+      })),
+    ],
+    ator.profileId,
+  );
 
   let emailsEnfileirados = 0;
 

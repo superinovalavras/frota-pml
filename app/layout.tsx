@@ -6,6 +6,7 @@ import { OrgaosProvider } from "@/lib/store/orgaos-context";
 import { SuperintendenciasProvider } from "@/lib/store/superintendencias-context";
 import { UsuariosProvider } from "@/lib/store/usuarios-context";
 import { PerfilProvider } from "@/lib/perfil-context";
+import { NotificacoesProvider } from "@/lib/store/notificacoes-context";
 import { BrandingProvider } from "@/lib/store/branding-context";
 
 const outfit = Outfit({
@@ -41,7 +42,9 @@ export default function RootLayout({
             <OrgaosProvider>
               <SuperintendenciasProvider>
                 <UsuariosProvider>
-                  <PerfilProvider>{children}</PerfilProvider>
+                  <PerfilProvider>
+                    <NotificacoesProvider>{children}</NotificacoesProvider>
+                  </PerfilProvider>
                 </UsuariosProvider>
               </SuperintendenciasProvider>
             </OrgaosProvider>

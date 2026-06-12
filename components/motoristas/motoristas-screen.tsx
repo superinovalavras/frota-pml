@@ -1,18 +1,25 @@
 "use client";
 
-import { useMemo } from "react";
-import { Car, IdCard, Phone, Mail, Building2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Car, IdCard, Phone, Mail, Building2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useOrgaos } from "@/lib/store/orgaos-context";
+import { usePerfil } from "@/lib/perfil-context";
 import { formatDataIsoBr, formatTelefone } from "@/lib/formatters";
 import { temCnhValida } from "@/lib/agendamento-utils";
+import { UsuarioForm } from "@/components/admin/usuario-form";
+import { FUNCAO_MOTORISTA_ID } from "@/lib/mock/funcoes";
 
 export function MotoristasScreen() {
   const { motoristasDisponiveis } = useUsuarios();
   const { buscarPorId: buscarOrgao } = useOrgaos();
+  const { usuario: usuarioAtual } = usePerfil();
+  const [criando, setCriando] = useState(false);
+  const ehMaster = usuarioAtual.perfil === "master";
 
   const ordenados = useMemo(
     () =>
@@ -24,13 +31,20 @@ export function MotoristasScreen() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Motoristas</h1>
-        <p className="text-sm text-muted-foreground">
-          Lista derivada automaticamente: usuários cuja função tem o atributo
-          de motorista. Para adicionar alguém aqui, defina a função
-          correspondente em <strong>Administração › Usuários</strong>.
-        </p>
+      <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold">Motoristas</h1>
+          <p className="text-sm text-muted-foreground">
+            Quem pode dirigir: usuários com a função Motorista ou qualquer
+            servidor com CNH válida cadastrada.
+          </p>
+        </div>
+        {ehMaster && (
+          <Button onClick={() => setCriando(true)}>
+            <Plus className="size-4" />
+            Novo motorista
+          </Button>
+        )}
       </div>
 
       {ordenados.length === 0 ? (
@@ -125,6 +139,15 @@ export function MotoristasScreen() {
           })}
         </div>
       )}
+
+      {/* Cadastro de motorista = cadastro de usuário (mesma base) com a
+          função Motorista pré-selecionada. */}
+      <UsuarioForm
+        aberto={criando}
+        usuario={null}
+        funcaoInicialId={FUNCAO_MOTORISTA_ID}
+        onClose={() => setCriando(false)}
+      />
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { criarSupabaseAdmin } from "@/lib/supabase/server";
 import { obterAtor } from "@/lib/api/autenticar";
 import { enfileirarEmailLote } from "@/lib/email/outbox";
 import { processarFila } from "@/lib/email/dispatcher";
+import { inserirNotificacoes, resumoReservaServer } from "@/lib/notificar-server";
 import type { Passageiro } from "@/lib/mock/types";
 import { timestamptzParaIsoLocal } from "@/lib/data/mappers";
 
@@ -147,6 +148,31 @@ export async function POST(req: Request) {
     : []) as Passageiro[]) {
     if (p?.tipo === "usuario") ids.add(p.usuarioId);
   }
+
+  // Notificação interna (sino) para os envolvidos — exceto quem cancelou.
+  const resumoCancel = resumoReservaServer({
+    inicio: timestamptzParaIsoLocal(reserva.inicio),
+    fim: timestamptzParaIsoLocal(reserva.fim),
+    diaTodo: reserva.dia_todo,
+    destino: reserva.destino,
+    veiculoPlaca: veiculoEmail.placa,
+    veiculoNome: veiculoEmail.nome,
+  });
+  await inserirNotificacoes(
+    admin,
+    Array.from(ids).map((destinatarioId) => ({
+      destinatarioId,
+      tipo: "reserva_cancelada" as const,
+      titulo: "Reserva cancelada",
+      mensagem:
+        resumoCancel +
+        `\nCancelada por: ${ator.nome}` +
+        (motivo ? `\nMotivo: ${motivo}` : ""),
+      agendamentoId: reserva.id,
+      veiculoId: veiculoEmail.id,
+    })),
+    ator.profileId,
+  );
 
   let emailsEnfileirados = 0;
   let emailsEnviados = 0;

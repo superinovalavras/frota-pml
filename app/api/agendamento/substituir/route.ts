@@ -31,6 +31,7 @@ import { criarSupabaseAdmin } from "@/lib/supabase/server";
 import { obterAtor } from "@/lib/api/autenticar";
 import { enfileirarEmailLote } from "@/lib/email/outbox";
 import { processarFila } from "@/lib/email/dispatcher";
+import { inserirNotificacoes, resumoReservaServer } from "@/lib/notificar-server";
 import { isoLocalParaTimestamptz, timestamptzParaIsoLocal } from "@/lib/data/mappers";
 import type { Passageiro } from "@/lib/mock/types";
 
@@ -367,6 +368,32 @@ export async function POST(req: Request) {
     : []) as Passageiro[]) {
     if (p?.tipo === "usuario") ids.add(p.usuarioId);
   }
+
+  // Notificação interna (sino) — quem perdeu a reserva fica sabendo na hora.
+  await inserirNotificacoes(
+    admin,
+    Array.from(ids).map((destinatarioId) => ({
+      destinatarioId,
+      tipo: "reserva_substituida" as const,
+      titulo: "Reserva substituída por prioridade",
+      mensagem:
+        resumoReservaServer({
+          inicio: timestamptzParaIsoLocal(existente.inicio),
+          fim: timestamptzParaIsoLocal(existente.fim),
+          diaTodo: existente.dia_todo,
+          destino: existente.destino,
+          veiculoPlaca: veiculoEmail.placa,
+          veiculoNome: veiculoEmail.nome,
+        }) +
+        `\nSubstituída por: ${novoSolic.nome}` +
+        (novoSolic.telefone || novoSolic.email
+          ? `\nContato: ${novoSolic.telefone || novoSolic.email}`
+          : ""),
+      agendamentoId: existente.id,
+      veiculoId: veiculo.id,
+    })),
+    ator.profileId,
+  );
 
   let emailsEnfileirados = 0;
   let emailsEnviados = 0;

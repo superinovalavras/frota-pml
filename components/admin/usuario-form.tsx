@@ -36,11 +36,14 @@ interface Props {
   aberto: boolean;
   usuario: Usuario | null;
   onClose: () => void;
+  /** Função pré-selecionada ao criar um usuário novo (ex.: Motorista,
+   *  quando aberto a partir da aba Motoristas). */
+  funcaoInicialId?: string;
 }
 
 const SEM_VALOR = "_none";
 
-export function UsuarioForm({ aberto, usuario, onClose }: Props) {
+export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props) {
   const { funcoesOrdenadas, buscarPorId: buscarFuncao } = useFuncoes();
   const { salvar, usuarios: todosUsuarios } = useUsuarios();
   const { orgaos } = useOrgaos();
@@ -94,7 +97,9 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
       const padrao = funcoesOrdenadas.find(
         (f) => !f.sistema && f.nivelAcesso === "servidor",
       );
-      setFuncaoId(padrao?.id ?? funcoesOrdenadas[0]?.id ?? "");
+      setFuncaoId(
+        funcaoInicialId ?? padrao?.id ?? funcoesOrdenadas[0]?.id ?? "",
+      );
       setSecretariaId(orgaos[0]?.id ?? "");
       setSuperintendenciaId("");
       setCnhCategoria("");
@@ -104,7 +109,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
     }
     setImagemParaRecortar(null);
     setErro(null);
-  }, [aberto, usuario, funcoesOrdenadas, orgaos]);
+  }, [aberto, usuario, funcoesOrdenadas, orgaos, funcaoInicialId]);
 
   async function aoSelecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -362,14 +367,14 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
 
           <Separator className="md:col-span-2" />
 
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <Label>Órgão da prefeitura</Label>
             <Select
               value={secretariaId}
               onValueChange={setSecretariaId}
               disabled={ehMaster}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecionar..." />
               </SelectTrigger>
               <SelectContent>
@@ -382,7 +387,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
             </Select>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <Label>Superintendência (opcional)</Label>
             <Select
               value={superintendenciaId || SEM_VALOR}
@@ -391,7 +396,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
               }
               disabled={supDoOrgao.length === 0}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={
                     supDoOrgao.length === 0
@@ -413,14 +418,14 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
             </Select>
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-2 min-w-0">
             <Label>Função</Label>
             <Select
               value={funcaoId}
               onValueChange={setFuncaoId}
               disabled={ehMaster}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecionar..." />
               </SelectTrigger>
               <SelectContent>
@@ -451,7 +456,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 min-w-0">
             <Label>Categoria</Label>
             <Select
               value={cnhCategoria || SEM_VALOR}
@@ -459,7 +464,7 @@ export function UsuarioForm({ aberto, usuario, onClose }: Props) {
                 setCnhCategoria(v === SEM_VALOR ? "" : v)
               }
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="—" />
               </SelectTrigger>
               <SelectContent>

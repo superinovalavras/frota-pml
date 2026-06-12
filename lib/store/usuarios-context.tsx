@@ -17,6 +17,7 @@ import {
 } from "@/lib/data/frota";
 import { useFuncoes } from "./funcoes-context";
 import { notificarFalha } from "@/lib/notificacoes";
+import { temCnhValida } from "@/lib/agendamento-utils";
 
 interface UsuariosContextValue {
   usuarios: Usuario[];
@@ -112,11 +113,16 @@ export function UsuariosProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Pool de motoristas: quem tem a FUNÇÃO de motorista OU qualquer servidor
+  // com CNH válida cadastrada — qualquer um deles pode ser designado para
+  // dirigir (o designado recebe notificação interna no sino).
   const motoristasDisponiveis = useMemo(() => {
     const idsMotorista = new Set(
       funcoes.filter((f) => f.ehMotorista).map((f) => f.id),
     );
-    return usuarios.filter((u) => idsMotorista.has(u.funcaoId));
+    return usuarios.filter(
+      (u) => idsMotorista.has(u.funcaoId) || temCnhValida(u),
+    );
   }, [usuarios, funcoes]);
 
   const value = useMemo<UsuariosContextValue>(

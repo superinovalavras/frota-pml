@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { BadgeCheck, LogOut, Menu, User as UserIcon } from "lucide-react";
 import { usePerfil } from "@/lib/perfil-context";
 import { SeletorPerfil } from "@/components/seletor-perfil";
+import { SinoNotificacoes } from "@/components/sino-notificacoes";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,8 @@ export function Topbar() {
           </div>
         )}
       </div>
+
+      <SinoNotificacoes />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

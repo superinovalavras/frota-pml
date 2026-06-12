@@ -1,13 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, ArrowRight, LogIn } from "lucide-react";
+import { AlertTriangle, LogIn } from "lucide-react";
 import { useBranding } from "@/lib/store/branding-context";
 import { entrar, type EstadoLogin } from "./actions";
 
@@ -17,6 +16,16 @@ export default function LoginPage() {
     entrar,
     null,
   );
+  const sucesso = !!(estado && "ok" in estado);
+  const erro = estado && "erro" in estado ? estado.erro : null;
+
+  // Login OK → navegação COMPLETA (recarrega a página). Necessário para os
+  // providers do layout raiz remontarem e buscarem os dados já com a sessão
+  // (antes do login a RLS devolve tudo vazio — era a causa da "primeira
+  // visão incompleta" que só se resolvia com F5).
+  useEffect(() => {
+    if (sucesso) window.location.assign("/agenda");
+  }, [sucesso]);
 
   return (
     <div className="relative min-h-screen overflow-hidden flex items-center justify-center p-4">
@@ -83,37 +92,22 @@ export default function LoginPage() {
               />
             </div>
 
-            {estado?.erro && (
+            {erro && (
               <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2.5 text-sm text-destructive">
                 <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-                <span>{estado.erro}</span>
+                <span>{erro}</span>
               </div>
             )}
 
-            <Button type="submit" className="w-full" size="lg" disabled={enviando}>
+            <Button
+              type="submit"
+              className="w-full"
+              size="lg"
+              disabled={enviando || sucesso}
+            >
               <LogIn className="size-4" />
-              {enviando ? "Entrando…" : "Entrar"}
+              {enviando || sucesso ? "Entrando…" : "Entrar"}
             </Button>
-
-            <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <span className="relative mx-auto block w-fit bg-card px-2 text-[11px] uppercase tracking-wide text-muted-foreground">
-                ou
-              </span>
-            </div>
-
-            <Button asChild variant="outline" className="w-full" size="lg">
-              <Link href="/agenda">
-                Entrar em modo demonstração
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
-              No modo demonstração não há login: use o seletor no topo para
-              alternar entre os perfis.
-            </p>
           </form>
         </Card>
 

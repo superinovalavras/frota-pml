@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ImageIcon, Loader2, Upload, RotateCcw, Info } from "lucide-react";
+import { Crop, ImageIcon, Loader2, Upload, RotateCcw, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBranding } from "@/lib/store/branding-context";
@@ -33,6 +33,36 @@ export function MarcaTab() {
     } finally {
       setCarregando(false);
       if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  /**
+   * Reabre a logo ATUAL no recortador para ajustar o enquadramento
+   * (posição/zoom) sem precisar reenviar o arquivo. Baixa a imagem e
+   * converte para data URL — evita problemas de CORS no canvas.
+   */
+  async function aoReenquadrar() {
+    if (!logoUrl) return;
+    setCarregando(true);
+    setErro(null);
+    try {
+      const resp = await fetch(logoUrl);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      setImagemParaRecortar(dataUrl);
+    } catch (err) {
+      console.error(err);
+      setErro(
+        "Não foi possível carregar a logo atual para reenquadrar. Tente enviar o arquivo de novo.",
+      );
+    } finally {
+      setCarregando(false);
     }
   }
 
@@ -119,6 +149,17 @@ export function MarcaTab() {
               )}
               {logoUrl ? "Trocar logo" : "Enviar logo"}
             </Button>
+            {logoUrl && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void aoReenquadrar()}
+                disabled={carregando}
+              >
+                <Crop className="size-4" />
+                Reenquadrar
+              </Button>
+            )}
             {logoUrl && (
               <Button
                 type="button"

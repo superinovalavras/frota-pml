@@ -19,6 +19,7 @@ import { NextResponse } from "next/server";
 import { criarSupabaseAdmin, criarSupabaseServer } from "@/lib/supabase/server";
 import { enfileirarEmailLote } from "@/lib/email/outbox";
 import { processarFila } from "@/lib/email/dispatcher";
+import { inserirNotificacoes, resumoReservaServer } from "@/lib/notificar-server";
 import { timestamptzParaIsoLocal } from "@/lib/data/mappers";
 
 type CorpoPost = {
@@ -232,6 +233,31 @@ export async function POST(req: Request) {
     }
     if (idsDestino.size === 0) continue;
 
+    // Notificação interna (sino) — reserva cancelada por manutenção.
+    await inserirNotificacoes(
+      admin,
+      Array.from(idsDestino).map((destinatarioId) => ({
+        destinatarioId,
+        tipo: "veiculo_manutencao" as const,
+        titulo: "Reserva cancelada — veículo em manutenção",
+        mensagem:
+          resumoReservaServer({
+            inicio: timestamptzParaIsoLocal(r.inicio),
+            fim: timestamptzParaIsoLocal(r.fim),
+            diaTodo: r.dia_todo,
+            destino: r.destino,
+            veiculoPlaca: veiculo.placa,
+            veiculoNome:
+              [veiculo.marca, veiculo.modelo].filter(Boolean).join(" ").trim() ||
+              veiculo.modelo,
+          }) +
+          `\nMotivo: ${motivoLimpo}\nPrevisão de retorno: ${previsaoRetorno}`,
+        agendamentoId: r.id,
+        veiculoId: veiculo.id,
+      })),
+      ator.profileId,
+    );
+
     const { data: pessoas } = await admin
       .from("profiles")
       .select("id, nome, email")
@@ -327,7 +353,7 @@ export async function DELETE(req: Request) {
 
   const { data: veiculo } = await admin
     .from("veiculos")
-    .select("id, secretaria_id")
+    .select("id, secretaria_id, placa, modelo, marca")
     .eq("id", veiculoId)
     .maybeSingle();
   if (!veiculo) {
@@ -375,6 +401,28 @@ export async function DELETE(req: Request) {
       { status: 500 },
     );
   }
+
+  // Notificação interna (sino): avisa os gestores da secretaria que o
+  // veículo voltou e já pode ser reservado.
+  const nomeVeic =
+    [veiculo.marca, veiculo.modelo].filter(Boolean).join(" ").trim() ||
+    veiculo.modelo;
+  const { data: gestores } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("perfil", "gestor")
+    .eq("secretaria_id", veiculo.secretaria_id);
+  await inserirNotificacoes(
+    admin,
+    (gestores ?? []).map((g) => ({
+      destinatarioId: g.id,
+      tipo: "veiculo_liberado" as const,
+      titulo: "Veículo liberado da manutenção",
+      mensagem: `${veiculo.placa} · ${nomeVeic} voltou da manutenção e já está disponível para reservas.`,
+      veiculoId: veiculo.id,
+    })),
+    ator.profileId,
+  );
 
   return NextResponse.json({ ok: true });
 }

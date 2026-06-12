@@ -1,9 +1,8 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { criarSupabaseServer, criarSupabaseAdmin } from "@/lib/supabase/server";
 
-export type EstadoLogin = { erro: string } | null;
+export type EstadoLogin = { erro: string } | { ok: true } | null;
 
 /**
  * Login: aceita e-mail, CPF ou MASP + senha.
@@ -48,5 +47,10 @@ export async function entrar(
   });
   if (error) return { erro: "Identificador ou senha inválidos." };
 
-  redirect("/agenda");
+  // Não usamos redirect() aqui de propósito: o redirect de server action faz
+  // navegação "suave" (sem recarregar), e os providers do layout raiz — que
+  // montaram ANTES do login, quando a RLS devolvia tudo vazio — ficariam com
+  // os dados vazios até um F5. O client faz `window.location.assign`, que
+  // recarrega a página inteira já com a sessão.
+  return { ok: true };
 }
