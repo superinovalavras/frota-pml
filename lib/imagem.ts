@@ -55,12 +55,18 @@ function carregarImagem(src: string): Promise<HTMLImageElement> {
 
 /**
  * Recorta uma região (em pixels da imagem original) de uma imagem e devolve
- * um data URL JPEG. Limita o lado maior do resultado a `maxLado` px.
+ * um data URL. Limita o lado maior do resultado a `maxLado` px.
+ *
+ * `formatoSaida`:
+ *  - "jpeg" (padrão): menor, sem transparência — bom para fotos.
+ *  - "png": preserva TRANSPARÊNCIA — obrigatório para logos com fundo
+ *    transparente (JPEG pintaria o fundo de preto).
  */
 export async function recortarImagem(
   imagemSrc: string,
   regiao: { x: number; y: number; width: number; height: number },
   maxLado = 1000,
+  formatoSaida: "jpeg" | "png" = "jpeg",
 ): Promise<string> {
   const img = await carregarImagem(imagemSrc);
   let outW = Math.max(1, Math.round(regiao.width));
@@ -88,5 +94,7 @@ export async function recortarImagem(
     outW,
     outH,
   );
-  return canvas.toDataURL("image/jpeg", 0.85);
+  return formatoSaida === "png"
+    ? canvas.toDataURL("image/png")
+    : canvas.toDataURL("image/jpeg", 0.85);
 }

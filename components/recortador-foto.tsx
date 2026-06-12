@@ -32,6 +32,9 @@ interface Props {
   titulo?: string;
   /** Forma da máscara de recorte. */
   formato?: "rect" | "round";
+  /** Formato do arquivo gerado. "png" preserva transparência (logos);
+   *  "jpeg" (padrão) é menor e serve para fotos. */
+  saida?: "jpeg" | "png";
   /**
    * Se informado, após o recorte a imagem é enviada para o Supabase Storage
    * nessa pasta e `onConfirmar` recebe a URL pública. Se omitido, `onConfirmar`
@@ -48,6 +51,7 @@ export function RecortadorFoto({
   maxLado = 1000,
   titulo = "Enquadrar foto",
   formato = "rect",
+  saida = "jpeg",
   enviarPara,
   onConfirmar,
   onCancelar,
@@ -72,7 +76,7 @@ export function RecortadorFoto({
     if (!imagemSrc || !areaPixels) return;
     setProcessando(true);
     try {
-      const dataUrl = await recortarImagem(imagemSrc, areaPixels, maxLado);
+      const dataUrl = await recortarImagem(imagemSrc, areaPixels, maxLado, saida);
       if (!enviarPara) {
         onConfirmar(dataUrl);
         return;

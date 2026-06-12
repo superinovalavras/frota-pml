@@ -195,6 +195,8 @@ export function MarcaTab() {
         imagemSrc={imagemParaRecortar}
         aspecto={1}
         maxLado={512}
+        formato="round"
+        saida="png"
         titulo="Enquadrar a logo"
         enviarPara="marca"
         onConfirmar={(url) => {
