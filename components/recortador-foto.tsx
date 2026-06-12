@@ -127,7 +127,7 @@ export function RecortadorFoto({
           <input
             type="range"
             min={1}
-            max={4}
+            max={8}
             step={0.02}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
