@@ -112,18 +112,6 @@ export function AgendaSemanal() {
   const [editando, setEditando] = useState<Agendamento | null>(null);
   const [prefillInicio, setPrefillInicio] = useState<string | undefined>();
   const [prefillFim, setPrefillFim] = useState<string | undefined>();
-  // No celular mostramos UM dia por vez (a grade de 7 colunas não cabe).
-  // Índice 0..6 = segunda..domingo. Começa no dia de hoje.
-  const [diaIdxMobile, setDiaIdxMobile] = useState<number>(() => {
-    const wd = new Date().getDay(); // 0=dom..6=sáb
-    return wd === 0 ? 6 : wd - 1;
-  });
-
-  function irParaHoje() {
-    setReferencia(new Date());
-    const wd = new Date().getDay();
-    setDiaIdxMobile(wd === 0 ? 6 : wd - 1);
-  }
 
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -263,7 +251,7 @@ export function AgendaSemanal() {
             <Button
               variant="outline"
               size="sm"
-              onClick={irParaHoje}
+              onClick={() => setReferencia(new Date())}
               className="gap-2"
             >
               <CalendarDays className="size-4" />
@@ -336,74 +324,67 @@ export function AgendaSemanal() {
         {/* Calendário — sem scroll interno; rola junto com a página */}
         <Card className="mx-2 sm:mx-4 md:mx-6 p-0 overflow-hidden">
 
-        {/* ===== MOBILE: um dia por vez (a grade de 7 colunas não cabe) ===== */}
-        <div className="md:hidden">
-          {/* Seletor de dias */}
-          <div className="grid grid-cols-7 border-b bg-muted/30">
-            {dias.map((dia, i) => {
-              const ehHoje = isSameDay(dia, hoje);
-              const sel = i === diaIdxMobile;
-              const qtd = agendamentosNaSemana.filter((a) =>
-                isSameDay(new Date(a.inicio), dia),
-              ).length;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setDiaIdxMobile(i)}
+        {/* ===== MOBILE: semana inteira, em lista por dia ===== */}
+        <div className="md:hidden divide-y">
+          {dias.map((dia, i) => {
+            const ehHoje = isSameDay(dia, hoje);
+            const ags = agendamentosNaSemana
+              .filter((a) => isSameDay(new Date(a.inicio), dia))
+              .sort((a, b) => {
+                if (a.diaTodo && !b.diaTodo) return -1;
+                if (!a.diaTodo && b.diaTodo) return 1;
+                return (
+                  new Date(a.inicio).getTime() - new Date(b.inicio).getTime()
+                );
+              });
+            return (
+              <div key={i}>
+                <div
                   className={cn(
-                    "relative py-2 flex flex-col items-center gap-0.5 border-r last:border-r-0 transition-colors",
-                    sel ? "bg-primary/10" : "hover:bg-muted/50",
+                    "flex items-baseline gap-2 px-3 py-2",
+                    ehHoje ? "bg-primary/10" : "bg-muted/30",
                   )}
                 >
-                  <span className="text-[9px] uppercase text-muted-foreground tracking-wide">
-                    {DIAS_SEMANA[i].slice(0, 3)}
-                  </span>
                   <span
                     className={cn(
-                      "text-sm font-semibold inline-flex items-center justify-center size-7 rounded-full",
-                      ehHoje && "bg-primary text-primary-foreground",
+                      "text-sm font-semibold",
+                      ehHoje && "text-primary",
                     )}
                   >
-                    {dia.getDate()}
+                    {DIAS_SEMANA[i]}
                   </span>
-                  {qtd > 0 && (
-                    <span className="absolute top-1 right-1.5 size-1.5 rounded-full bg-primary" />
+                  <span className="text-xs text-muted-foreground">
+                    {dia.toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "short",
+                    })}
+                  </span>
+                  {ags.length > 0 && (
+                    <span className="ml-auto text-[11px] text-muted-foreground">
+                      {ags.length} reserva{ags.length === 1 ? "" : "s"}
+                    </span>
                   )}
-                </button>
-              );
-            })}
-          </div>
-          {/* Grade de um dia */}
-          <div className="relative grid grid-cols-[44px_1fr]">
-            <div className="border-r">
-              {horas.map((h) => (
-                <div
-                  key={h}
-                  className="text-[11px] text-muted-foreground px-1.5 text-right -mt-2"
-                  style={{ height: ALTURA_HORA }}
-                >
-                  {h.toString().padStart(2, "0")}:00
                 </div>
-              ))}
-            </div>
-            <DiaColuna
-              dia={dias[diaIdxMobile]}
-              agendamentos={agendamentosNaSemana.filter((a) =>
-                isSameDay(new Date(a.inicio), dias[diaIdxMobile]),
-              )}
-              veiculos={veiculos}
-              horas={horas}
-              destacado={isSameDay(dias[diaIdxMobile], hoje)}
-              mostrarLinhaAgora={
-                isSameDay(dias[diaIdxMobile], hoje) && mostrarLinhaAgora
-              }
-              minutosAgora={minutosAgora}
-              onSelect={setDetalhe}
-              onClickVazio={aoClicarSlotVazio}
-              buscarUsuario={buscarUsuario}
-            />
-          </div>
+                {ags.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground/60">
+                    Sem reservas
+                  </div>
+                ) : (
+                  <ul>
+                    {ags.map((a) => (
+                      <li key={a.id}>
+                        <LinhaReservaMobile
+                          agendamento={a}
+                          veiculos={veiculos}
+                          onClick={() => setDetalhe(a)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* ===== DESKTOP: semana de 7 colunas ===== */}
@@ -814,6 +795,57 @@ function TooltipContentRico({
         </div>
       </div>
     </TooltipContent>
+  );
+}
+
+/** Linha compacta de reserva na lista mobile (semana por dia). */
+function LinhaReservaMobile({
+  agendamento: a,
+  veiculos,
+  onClick,
+}: {
+  agendamento: Agendamento;
+  veiculos: Veiculo[];
+  onClick: () => void;
+}) {
+  const veiculo = veiculos.find((v) => v.id === a.veiculoId);
+  const tempo = a.diaTodo
+    ? "Dia todo"
+    : `${formatHora(a.inicio)}–${formatHora(a.fim)}`;
+  const nomeVeic = veiculo
+    ? `${veiculo.placa} · ${veiculo.modelo}`
+    : "Veículo removido";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "w-full text-left flex items-center gap-2.5 px-3 py-2 border-l-4 active:opacity-80 transition-opacity",
+        corStatusAgendamento(a.status),
+      )}
+    >
+      {veiculo?.fotoUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={veiculo.fotoUrl}
+          alt=""
+          className="size-11 rounded object-cover ring-1 ring-black/10 shrink-0"
+        />
+      ) : (
+        <span className="size-11 rounded bg-black/10 flex items-center justify-center shrink-0">
+          <Car className="size-4 opacity-50" />
+        </span>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="text-[11px] font-semibold leading-tight">{tempo}</div>
+        <div className="text-sm font-medium leading-tight truncate">
+          {a.destino}
+        </div>
+        <div className="text-[11px] opacity-80 leading-tight truncate">
+          {nomeVeic}
+        </div>
+      </div>
+    </button>
   );
 }
 

@@ -13,6 +13,7 @@ import {
   Calendar,
   Car,
   Pencil,
+  KeyRound,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,6 +25,7 @@ import { useAgendamentos } from "@/lib/store/agendamentos-context";
 import { useVeiculos } from "@/lib/store/veiculos-context";
 import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import { EditarPerfilDialog } from "./editar-perfil-dialog";
+import { TrocarSenhaDialog } from "./trocar-senha-dialog";
 import {
   formatHora,
   formatDataCurta,
@@ -40,6 +42,7 @@ export function PerfilScreen() {
   const { veiculos } = useVeiculos();
   const { buscarPorId: buscarSuperintendencia } = useSuperintendencias();
   const [editando, setEditando] = useState(false);
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
 
   const sup = usuario.superintendenciaId
     ? buscarSuperintendencia(usuario.superintendenciaId)
@@ -81,14 +84,24 @@ export function PerfilScreen() {
           </p>
         </div>
         {logado && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setEditando(true)}
-          >
-            <Pencil className="size-4" />
-            Editar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTrocandoSenha(true)}
+            >
+              <KeyRound className="size-4" />
+              Trocar senha
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditando(true)}
+            >
+              <Pencil className="size-4" />
+              Editar
+            </Button>
+          </div>
         )}
       </div>
 
@@ -292,6 +305,11 @@ export function PerfilScreen() {
         aberto={editando}
         usuario={usuario}
         onClose={() => setEditando(false)}
+      />
+
+      <TrocarSenhaDialog
+        aberto={trocandoSenha}
+        onClose={() => setTrocandoSenha(false)}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 "use server";
 
+import { createClient } from "@supabase/supabase-js";
 import { criarSupabaseAdmin, criarSupabaseServer } from "@/lib/supabase/server";
 import type { CategoriaCNH } from "@/lib/mock/types";
 import type { Database } from "@/lib/supabase/types";
@@ -117,6 +118,54 @@ export async function atualizarMeuPerfil(
     .eq("id", perfil.id);
   if (errUpd) {
     return { ok: false, erro: `Falha ao atualizar perfil: ${errUpd.message}` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Troca a senha do PRÓPRIO usuário logado. Confere a senha atual antes
+ * (login descartável, sem mexer na sessão) e exige mínimo de 8 caracteres.
+ */
+export async function trocarMinhaSenha(
+  senhaAtual: string,
+  novaSenha: string,
+): Promise<ResultadoMeuPerfil> {
+  const supa = await criarSupabaseServer();
+  const { data: auth } = await supa.auth.getUser();
+  if (!auth.user) {
+    return { ok: false, erro: "Não autenticado." };
+  }
+  const email = auth.user.email;
+  if (!email) {
+    return { ok: false, erro: "Esta conta não tem e-mail para validar a senha." };
+  }
+  if (!novaSenha || novaSenha.length < 8) {
+    return { ok: false, erro: "A nova senha precisa ter ao menos 8 caracteres." };
+  }
+  if (novaSenha === senhaAtual) {
+    return { ok: false, erro: "A nova senha deve ser diferente da atual." };
+  }
+
+  // Confere a senha atual com um cliente descartável (persistSession:false não
+  // toca nos cookies da sessão real).
+  const verificador = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false } },
+  );
+  const { error: errVer } = await verificador.auth.signInWithPassword({
+    email,
+    password: senhaAtual,
+  });
+  if (errVer) {
+    return { ok: false, erro: "Senha atual incorreta." };
+  }
+
+  const { error: errUpdSenha } = await supa.auth.updateUser({
+    password: novaSenha,
+  });
+  if (errUpdSenha) {
+    return { ok: false, erro: `Falha ao trocar a senha: ${errUpdSenha.message}` };
   }
   return { ok: true };
 }
