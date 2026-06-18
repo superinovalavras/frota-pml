@@ -112,6 +112,18 @@ export function AgendaSemanal() {
   const [editando, setEditando] = useState<Agendamento | null>(null);
   const [prefillInicio, setPrefillInicio] = useState<string | undefined>();
   const [prefillFim, setPrefillFim] = useState<string | undefined>();
+  // No celular mostramos UM dia por vez (a grade de 7 colunas não cabe).
+  // Índice 0..6 = segunda..domingo. Começa no dia de hoje.
+  const [diaIdxMobile, setDiaIdxMobile] = useState<number>(() => {
+    const wd = new Date().getDay(); // 0=dom..6=sáb
+    return wd === 0 ? 6 : wd - 1;
+  });
+
+  function irParaHoje() {
+    setReferencia(new Date());
+    const wd = new Date().getDay();
+    setDiaIdxMobile(wd === 0 ? 6 : wd - 1);
+  }
 
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -251,7 +263,7 @@ export function AgendaSemanal() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setReferencia(new Date())}
+              onClick={irParaHoje}
               className="gap-2"
             >
               <CalendarDays className="size-4" />
@@ -323,6 +335,79 @@ export function AgendaSemanal() {
 
         {/* Calendário — sem scroll interno; rola junto com a página */}
         <Card className="mx-2 sm:mx-4 md:mx-6 p-0 overflow-hidden">
+
+        {/* ===== MOBILE: um dia por vez (a grade de 7 colunas não cabe) ===== */}
+        <div className="md:hidden">
+          {/* Seletor de dias */}
+          <div className="grid grid-cols-7 border-b bg-muted/30">
+            {dias.map((dia, i) => {
+              const ehHoje = isSameDay(dia, hoje);
+              const sel = i === diaIdxMobile;
+              const qtd = agendamentosNaSemana.filter((a) =>
+                isSameDay(new Date(a.inicio), dia),
+              ).length;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setDiaIdxMobile(i)}
+                  className={cn(
+                    "relative py-2 flex flex-col items-center gap-0.5 border-r last:border-r-0 transition-colors",
+                    sel ? "bg-primary/10" : "hover:bg-muted/50",
+                  )}
+                >
+                  <span className="text-[9px] uppercase text-muted-foreground tracking-wide">
+                    {DIAS_SEMANA[i].slice(0, 3)}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-sm font-semibold inline-flex items-center justify-center size-7 rounded-full",
+                      ehHoje && "bg-primary text-primary-foreground",
+                    )}
+                  >
+                    {dia.getDate()}
+                  </span>
+                  {qtd > 0 && (
+                    <span className="absolute top-1 right-1.5 size-1.5 rounded-full bg-primary" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {/* Grade de um dia */}
+          <div className="relative grid grid-cols-[44px_1fr]">
+            <div className="border-r">
+              {horas.map((h) => (
+                <div
+                  key={h}
+                  className="text-[11px] text-muted-foreground px-1.5 text-right -mt-2"
+                  style={{ height: ALTURA_HORA }}
+                >
+                  {h.toString().padStart(2, "0")}:00
+                </div>
+              ))}
+            </div>
+            <DiaColuna
+              dia={dias[diaIdxMobile]}
+              agendamentos={agendamentosNaSemana.filter((a) =>
+                isSameDay(new Date(a.inicio), dias[diaIdxMobile]),
+              )}
+              veiculos={veiculos}
+              horas={horas}
+              destacado={isSameDay(dias[diaIdxMobile], hoje)}
+              mostrarLinhaAgora={
+                isSameDay(dias[diaIdxMobile], hoje) && mostrarLinhaAgora
+              }
+              minutosAgora={minutosAgora}
+              onSelect={setDetalhe}
+              onClickVazio={aoClicarSlotVazio}
+              buscarUsuario={buscarUsuario}
+            />
+          </div>
+        </div>
+
+        {/* ===== DESKTOP: semana de 7 colunas ===== */}
+        <div className="hidden md:block">
         <div className="overflow-x-auto">
         <div className="min-w-[720px]">
           {/* Cabeçalho dos dias */}
@@ -398,6 +483,7 @@ export function AgendaSemanal() {
               );
             })}
           </div>
+        </div>
         </div>
         </div>
         </Card>
