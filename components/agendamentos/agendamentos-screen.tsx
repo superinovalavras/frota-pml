@@ -69,7 +69,14 @@ export function AgendamentosScreen() {
 
   const filtrados = useMemo(() => {
     const idsVisiveis = new Set(veiculosVisiveis.map((v) => v.id));
-    let lista = agendamentos.filter((a) => idsVisiveis.has(a.veiculoId));
+    // Inclui reservas onde sou solicitante/motorista mesmo que o veículo seja
+    // de outra secretaria (motorista designado para carro de outra área).
+    let lista = agendamentos.filter(
+      (a) =>
+        idsVisiveis.has(a.veiculoId) ||
+        a.solicitanteId === usuario.id ||
+        a.motoristaId === usuario.id,
+    );
 
     if (filtroStatus !== "todos") {
       lista = lista.filter((a) => a.status === filtroStatus);

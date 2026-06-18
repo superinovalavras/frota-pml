@@ -4,6 +4,7 @@ import { VeiculosProvider } from "@/lib/store/veiculos-context";
 import { AgendamentosProvider } from "@/lib/store/agendamentos-context";
 import { ConfirmacaoProvider } from "@/components/confirmacao-provider";
 import { GuardaRota } from "@/components/guarda-rota";
+import { GateCarregando } from "@/components/gate-carregando";
 import { Notificacoes } from "@/components/notificacoes";
 
 export default function DashboardLayout({
@@ -16,16 +17,18 @@ export default function DashboardLayout({
       <AgendamentosProvider>
         <ConfirmacaoProvider>
           <SidebarMobileProvider>
-            <div className="flex h-screen w-screen overflow-hidden">
-              <Sidebar />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <Topbar />
-                <main className="flex-1 overflow-auto">
-                  <GuardaRota>{children}</GuardaRota>
-                </main>
+            <GateCarregando>
+              <div className="flex h-screen w-screen overflow-hidden">
+                <Sidebar />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <Topbar />
+                  <main className="flex-1 overflow-auto">
+                    <GuardaRota>{children}</GuardaRota>
+                  </main>
+                </div>
               </div>
-            </div>
-            <Notificacoes />
+              <Notificacoes />
+            </GateCarregando>
           </SidebarMobileProvider>
         </ConfirmacaoProvider>
       </AgendamentosProvider>

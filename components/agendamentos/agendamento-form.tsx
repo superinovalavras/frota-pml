@@ -530,7 +530,9 @@ export function AgendamentoForm({
 
           {/* Veículo com foto */}
           <div className="space-y-2 md:col-span-2">
-            <Label>Veículo</Label>
+            <Label>
+              Veículo <span className="text-destructive">*</span>
+            </Label>
             <Select
               value={veiculoId}
               onValueChange={(v) => {
@@ -694,7 +696,8 @@ export function AgendamentoForm({
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="af-partida" className="flex items-center gap-1">
               <MapPin className="size-3.5" />
-              Local de partida (onde o veículo será retirado)
+              Local de partida (onde o veículo será retirado){" "}
+              <span className="text-destructive">*</span>
             </Label>
             <Input
               id="af-partida"
@@ -740,7 +743,9 @@ export function AgendamentoForm({
 
           {/* Destino e finalidade */}
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="af-destino">Destino</Label>
+            <Label htmlFor="af-destino">
+              Destino <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="af-destino"
               value={destino}
@@ -753,7 +758,9 @@ export function AgendamentoForm({
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="af-finalidade">Finalidade</Label>
+            <Label htmlFor="af-finalidade">
+              Finalidade <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="af-finalidade"
               value={finalidade}

@@ -137,7 +137,12 @@ export function AgendaSemanal() {
   const agendamentosFiltrados = useMemo(() => {
     const idsVisiveis = new Set(veiculosVisiveis.map((v) => v.id));
     return agendamentos.filter((a) => {
-      if (!idsVisiveis.has(a.veiculoId)) return false;
+      // Sempre mostra as reservas em que SOU solicitante ou motorista, mesmo
+      // que o veículo seja de outra secretaria (ex.: servidor com CNH
+      // designado para dirigir carro de outra área).
+      const ehMinha =
+        a.solicitanteId === usuario.id || a.motoristaId === usuario.id;
+      if (!idsVisiveis.has(a.veiculoId) && !ehMinha) return false;
       if (veiculoSelecionado !== "todos" && a.veiculoId !== veiculoSelecionado)
         return false;
       if (filtroEscopo === "minhas") {

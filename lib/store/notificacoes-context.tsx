@@ -38,7 +38,17 @@ export function NotificacoesProvider({ children }: { children: ReactNode }) {
   const recarregar = useCallback(async () => {
     try {
       const lista = await listarMinhasNotificacoes();
-      setNotificacoes(lista);
+      // Preserva o "lida" otimista: se o usuário acabou de marcar como lida
+      // localmente e o write ainda não commitou, a re-busca não pode
+      // "des-ler". Uma vez lida no cliente, permanece lida.
+      setNotificacoes((prev) => {
+        const lidasLocais = new Set(
+          prev.filter((n) => n.lida).map((n) => n.id),
+        );
+        return lista.map((n) =>
+          lidasLocais.has(n.id) ? { ...n, lida: true } : n,
+        );
+      });
     } catch (e) {
       // Sem sessão (ou rede fora) — sem alarde; o sino fica vazio.
       console.warn("notificações:", e);
@@ -52,7 +62,15 @@ export function NotificacoesProvider({ children }: { children: ReactNode }) {
     const carregar = () => {
       listarMinhasNotificacoes()
         .then((lista) => {
-          if (vivo) setNotificacoes(lista);
+          if (!vivo) return;
+          setNotificacoes((prev) => {
+            const lidasLocais = new Set(
+              prev.filter((n) => n.lida).map((n) => n.id),
+            );
+            return lista.map((n) =>
+              lidasLocais.has(n.id) ? { ...n, lida: true } : n,
+            );
+          });
         })
         .catch((e) => console.warn("notificações:", e));
     };
