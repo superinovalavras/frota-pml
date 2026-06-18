@@ -45,8 +45,8 @@ export function TrocarSenhaDialog({ aberto, onClose }: Props) {
       setErro("Informe a senha atual.");
       return;
     }
-    if (nova.length < 4) {
-      setErro("A nova senha precisa ter ao menos 4 caracteres.");
+    if (nova.length < 6) {
+      setErro("A nova senha precisa ter ao menos 6 caracteres.");
       return;
     }
     if (nova !== confirmar) {
@@ -78,7 +78,7 @@ export function TrocarSenhaDialog({ aberto, onClose }: Props) {
             Trocar senha
           </DialogTitle>
           <DialogDescription>
-            Escolha uma senha pessoal de no mínimo 4 caracteres. Pode ser só
+            Escolha uma senha pessoal de no mínimo 6 caracteres. Pode ser só
             números, se preferir.
           </DialogDescription>
         </DialogHeader>
@@ -111,7 +111,7 @@ export function TrocarSenhaDialog({ aberto, onClose }: Props) {
                 autoComplete="new-password"
                 value={nova}
                 onChange={(e) => setNova(e.target.value)}
-                placeholder="Mínimo 4 caracteres"
+                placeholder="Mínimo 6 caracteres"
               />
             </div>
             <div className="space-y-1.5">

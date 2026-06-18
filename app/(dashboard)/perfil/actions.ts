@@ -139,8 +139,8 @@ export async function trocarMinhaSenha(
   if (!email) {
     return { ok: false, erro: "Esta conta não tem e-mail para validar a senha." };
   }
-  if (!novaSenha || novaSenha.length < 4) {
-    return { ok: false, erro: "A nova senha precisa ter ao menos 4 caracteres." };
+  if (!novaSenha || novaSenha.length < 6) {
+    return { ok: false, erro: "A nova senha precisa ter ao menos 6 caracteres." };
   }
   if (novaSenha === senhaAtual) {
     return { ok: false, erro: "A nova senha deve ser diferente da atual." };
