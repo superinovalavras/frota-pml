@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { criarSupabaseAdmin } from "@/lib/supabase/server";
+import { criarSupabaseAdmin, criarSupabaseServer } from "@/lib/supabase/server";
 
 /**
  * Upload de imagem para o bucket `imagens` do Supabase Storage.
  * Recebe um data URL (já recortado/comprimido no cliente) e devolve a URL
- * pública do arquivo salvo.
- *
- * TODO (Fase 2b): exigir sessão autenticada antes de aceitar o upload.
+ * pública do arquivo salvo. Exige sessão autenticada.
  */
 const PASTAS = new Set(["veiculos", "perfis", "marca"]);
 const BUCKET = "imagens";
@@ -14,6 +12,15 @@ const BUCKET = "imagens";
 type Corpo = { dataUrl?: unknown; pasta?: unknown };
 
 export async function POST(req: Request) {
+  // Exige login — sem isso qualquer um poderia encher o bucket de imagens.
+  const supaSessao = await criarSupabaseServer();
+  const {
+    data: { user },
+  } = await supaSessao.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ erro: "Não autenticado." }, { status: 401 });
+  }
+
   let corpo: Corpo;
   try {
     corpo = (await req.json()) as Corpo;
