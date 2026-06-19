@@ -324,75 +324,9 @@ export function AgendaSemanal() {
         {/* Calendário — sem scroll interno; rola junto com a página */}
         <Card className="mx-2 sm:mx-4 md:mx-6 p-0 overflow-hidden">
 
-        {/* ===== MOBILE: semana inteira, em lista por dia ===== */}
-        <div className="md:hidden divide-y">
-          {dias.map((dia, i) => {
-            const ehHoje = isSameDay(dia, hoje);
-            const ags = agendamentosNaSemana
-              .filter((a) => isSameDay(new Date(a.inicio), dia))
-              .sort((a, b) => {
-                if (a.diaTodo && !b.diaTodo) return -1;
-                if (!a.diaTodo && b.diaTodo) return 1;
-                return (
-                  new Date(a.inicio).getTime() - new Date(b.inicio).getTime()
-                );
-              });
-            return (
-              <div key={i}>
-                <div
-                  className={cn(
-                    "flex items-baseline gap-2 px-3 py-2",
-                    ehHoje ? "bg-primary/10" : "bg-muted/30",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "text-sm font-semibold",
-                      ehHoje && "text-primary",
-                    )}
-                  >
-                    {DIAS_SEMANA[i]}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {dia.toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "short",
-                    })}
-                  </span>
-                  {ags.length > 0 && (
-                    <span className="ml-auto text-[11px] text-muted-foreground">
-                      {ags.length} reserva{ags.length === 1 ? "" : "s"}
-                    </span>
-                  )}
-                </div>
-                {ags.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-muted-foreground/60">
-                    Sem reservas
-                  </div>
-                ) : (
-                  <ul>
-                    {ags.map((a) => (
-                      <li key={a.id}>
-                        <LinhaReservaMobile
-                          agendamento={a}
-                          veiculos={veiculos}
-                          onClick={() => setDetalhe(a)}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* ===== DESKTOP: semana de 7 colunas ===== */}
-        <div className="hidden md:block">
-        <div className="overflow-x-auto">
-        <div className="min-w-[720px]">
-          {/* Cabeçalho dos dias */}
-          <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
+          {/* Cabeçalho dos dias — responsivo: os 7 dias cabem na tela do
+              celular (rótulo abreviado, números menores). */}
+          <div className="grid grid-cols-[38px_repeat(7,1fr)] md:grid-cols-[60px_repeat(7,1fr)] border-b bg-muted/30">
             <div className="border-r" />
             {dias.map((dia, i) => {
               const ehHoje = isSameDay(dia, hoje);
@@ -403,23 +337,24 @@ export function AgendaSemanal() {
                 <div
                   key={i}
                   className={cn(
-                    "px-2 py-3 text-center border-r last:border-r-0",
+                    "px-0.5 md:px-2 py-1.5 md:py-3 text-center border-r last:border-r-0",
                     ehHoje && "bg-primary/5",
                   )}
                 >
-                  <div className="text-xs uppercase text-muted-foreground tracking-wide">
-                    {DIAS_SEMANA[i]}
+                  <div className="text-[9px] md:text-xs uppercase text-muted-foreground tracking-wide truncate">
+                    <span className="md:hidden">{DIAS_SEMANA[i].slice(0, 3)}</span>
+                    <span className="hidden md:inline">{DIAS_SEMANA[i]}</span>
                   </div>
                   <div
                     className={cn(
-                      "text-lg font-semibold inline-flex items-center justify-center min-w-[28px] h-7 rounded-full",
+                      "text-sm md:text-lg font-semibold inline-flex items-center justify-center min-w-[22px] md:min-w-[28px] h-6 md:h-7 rounded-full",
                       ehHoje && "bg-primary text-primary-foreground",
                     )}
                   >
                     {dia.getDate().toString().padStart(2, "0")}
                   </div>
                   {qtd > 0 && (
-                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                    <div className="hidden md:block text-[10px] text-muted-foreground mt-0.5">
                       {qtd} reserva{qtd === 1 ? "" : "s"}
                     </div>
                   )}
@@ -429,15 +364,16 @@ export function AgendaSemanal() {
           </div>
 
           {/* Grade horária — sem scroll interno */}
-          <div className="relative grid grid-cols-[60px_repeat(7,1fr)]">
+          <div className="relative grid grid-cols-[38px_repeat(7,1fr)] md:grid-cols-[60px_repeat(7,1fr)]">
             <div className="border-r">
               {horas.map((h) => (
                 <div
                   key={h}
-                  className="text-xs text-muted-foreground px-2 text-right -mt-2"
+                  className="text-[10px] md:text-xs text-muted-foreground px-1 md:px-2 text-right -mt-2"
                   style={{ height: ALTURA_HORA }}
                 >
-                  {h.toString().padStart(2, "0")}:00
+                  {h.toString().padStart(2, "0")}
+                  <span className="hidden md:inline">:00</span>
                 </div>
               ))}
             </div>
@@ -464,9 +400,6 @@ export function AgendaSemanal() {
               );
             })}
           </div>
-        </div>
-        </div>
-        </div>
         </Card>
 
         <AgendamentoDetalhe
@@ -654,7 +587,7 @@ function EventoCard({
           data-evento-bloco
           onClick={onClick}
           className={cn(
-            "absolute rounded-md border-l-4 overflow-hidden text-left",
+            "absolute rounded-md border-l-2 md:border-l-4 overflow-hidden text-left",
             "shadow-sm hover:shadow-md hover:z-20 hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer",
             posClass,
             corStatusAgendamento(a.status),
@@ -798,57 +731,6 @@ function TooltipContentRico({
   );
 }
 
-/** Linha compacta de reserva na lista mobile (semana por dia). */
-function LinhaReservaMobile({
-  agendamento: a,
-  veiculos,
-  onClick,
-}: {
-  agendamento: Agendamento;
-  veiculos: Veiculo[];
-  onClick: () => void;
-}) {
-  const veiculo = veiculos.find((v) => v.id === a.veiculoId);
-  const tempo = a.diaTodo
-    ? "Dia todo"
-    : `${formatHora(a.inicio)}–${formatHora(a.fim)}`;
-  const nomeVeic = veiculo
-    ? `${veiculo.placa} · ${veiculo.modelo}`
-    : "Veículo removido";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "w-full text-left flex items-center gap-2.5 px-3 py-2 border-l-4 active:opacity-80 transition-opacity",
-        corStatusAgendamento(a.status),
-      )}
-    >
-      {veiculo?.fotoUrl ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={veiculo.fotoUrl}
-          alt=""
-          className="size-11 rounded object-cover ring-1 ring-black/10 shrink-0"
-        />
-      ) : (
-        <span className="size-11 rounded bg-black/10 flex items-center justify-center shrink-0">
-          <Car className="size-4 opacity-50" />
-        </span>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-semibold leading-tight">{tempo}</div>
-        <div className="text-sm font-medium leading-tight truncate">
-          {a.destino}
-        </div>
-        <div className="text-[11px] opacity-80 leading-tight truncate">
-          {nomeVeic}
-        </div>
-      </div>
-    </button>
-  );
-}
-
 function FiltroVeiculo({
   veiculos,
   valor,
@@ -863,9 +745,9 @@ function FiltroVeiculo({
     <select
       value={valor}
       onChange={(e) => onChange(e.target.value)}
-      className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+      className="h-9 w-full sm:w-auto sm:max-w-[220px] rounded-md border border-input bg-background px-3 text-sm"
     >
-      <option value="todos">Todos os veículos visíveis</option>
+      <option value="todos">Filtrar por veículo</option>
       {veiculos.map((v) => {
         const lotacao = v.superintendenciaId
           ? buscarSuperintendencia(v.superintendenciaId)?.sigla
