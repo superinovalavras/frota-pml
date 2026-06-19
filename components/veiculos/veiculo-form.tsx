@@ -42,6 +42,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
 
   const [nome, setNome] = useState("");
   const [placa, setPlaca] = useState("");
+  const [lugares, setLugares] = useState("5");
   const [observacoes, setObservacoes] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | undefined>(undefined);
   const [carregandoFoto, setCarregandoFoto] = useState(false);
@@ -62,11 +63,13 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
         .join(" ");
       setNome(nomeCompleto || veiculo.modelo);
       setPlaca(veiculo.placa);
+      setLugares(String(veiculo.lugares ?? 5));
       setObservacoes(veiculo.observacoes ?? "");
       setFotoUrl(veiculo.fotoUrl);
     } else {
       setNome("");
       setPlaca("");
+      setLugares("5");
       setObservacoes("");
       setFotoUrl(undefined);
     }
@@ -159,6 +162,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
     base.modelo = nomeLimpo;
     base.marca = "";
     base.placa = placaLimpa;
+    base.lugares = Math.min(60, Math.max(1, Math.round(Number(lugares) || 5)));
     base.observacoes = observacoes.trim() || undefined;
     base.fotoUrl = fotoUrl;
 
@@ -254,17 +258,32 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
             />
           </div>
 
-          {/* Placa */}
-          <div className="space-y-2">
-            <Label htmlFor="vf-placa">Placa</Label>
-            <Input
-              id="vf-placa"
-              value={placa}
-              onChange={(e) => setPlaca(e.target.value.toUpperCase())}
-              placeholder="Ex.: PYT-6155"
-              maxLength={10}
-              className="uppercase tracking-wide"
-            />
+          {/* Placa + lugares */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="vf-placa">Placa</Label>
+              <Input
+                id="vf-placa"
+                value={placa}
+                onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                placeholder="Ex.: PYT-6155"
+                maxLength={10}
+                className="uppercase tracking-wide"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vf-lugares">Lugares</Label>
+              <Input
+                id="vf-lugares"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={60}
+                value={lugares}
+                onChange={(e) => setLugares(e.target.value)}
+                placeholder="5"
+              />
+            </div>
           </div>
 
           {/* Observações */}

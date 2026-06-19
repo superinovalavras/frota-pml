@@ -167,6 +167,7 @@ export function veiculoFromRow(r: Tables["veiculos"]["Row"]): Veiculo {
     superintendenciaId: r.superintendencia_id,
     status: r.status as StatusVeiculo,
     kmAtual: r.km_atual,
+    lugares: r.lugares ?? 5,
     observacoes: r.observacoes ?? undefined,
     fotoUrl: r.foto_url ?? undefined,
   };
@@ -184,6 +185,7 @@ export function veiculoToRow(v: Veiculo): Tables["veiculos"]["Insert"] {
     superintendencia_id: v.superintendenciaId,
     status: v.status,
     km_atual: v.kmAtual,
+    lugares: v.lugares ?? 5,
     observacoes: orNull(v.observacoes),
     foto_url: orNull(v.fotoUrl),
   };

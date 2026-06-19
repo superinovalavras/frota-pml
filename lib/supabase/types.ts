@@ -82,6 +82,7 @@ type VeiculoRow = {
   superintendencia_id: string | null;
   status: StatusVeiculoDb;
   km_atual: number;
+  lugares: number;
   observacoes: string | null;
   foto_url: string | null;
   criado_em: string;

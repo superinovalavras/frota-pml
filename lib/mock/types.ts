@@ -96,6 +96,8 @@ export interface Veiculo {
   superintendenciaId: string | null;
   status: StatusVeiculo;
   kmAtual: number;
+  /** Quantidade de lugares (motorista + passageiros). */
+  lugares?: number;
   observacoes?: string;
   /** Data URL ou URL externa. Em Fase 1 fica em localStorage. */
   fotoUrl?: string;
