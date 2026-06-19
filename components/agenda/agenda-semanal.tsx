@@ -607,8 +607,8 @@ function EventoCard({
                 className={cn(
                   "absolute inset-0",
                   isDiaTodo
-                    ? "bg-gradient-to-b from-black/80 via-black/35 to-transparent"
-                    : "bg-gradient-to-t from-black/80 via-black/35 to-transparent",
+                    ? "bg-gradient-to-b from-black/75 to-transparent"
+                    : "bg-gradient-to-t from-black/75 to-transparent",
                 )}
               />
             </>
@@ -636,22 +636,24 @@ function EventoCard({
               {a.destino}
             </div>
 
+            {/* No celular (coluna estreita) mostramos só hora + destino;
+                veículo/volta/solicitante aparecem a partir do md. */}
             {altura > 60 && (
-              <div className="flex items-center gap-1 text-[10px] opacity-90 leading-tight truncate">
+              <div className="hidden md:flex items-center gap-1 text-[10px] opacity-90 leading-tight truncate">
                 <Car className="size-3 shrink-0" />
                 <span className="truncate">{nomeVeic}</span>
               </div>
             )}
 
             {isDiaTodo && (
-              <div className="flex items-center gap-1 text-[10px] opacity-90 leading-tight truncate">
+              <div className="hidden md:flex items-center gap-1 text-[10px] opacity-90 leading-tight truncate">
                 <Clock className="size-3 shrink-0" />
                 Volta {formatHora(a.fim)}
               </div>
             )}
 
             {altura > 88 && solicitante && (
-              <div className="flex items-center gap-1 text-[10px] italic opacity-80 leading-tight truncate">
+              <div className="hidden md:flex items-center gap-1 text-[10px] italic opacity-80 leading-tight truncate">
                 <IdCard className="size-3 shrink-0" />
                 <span className="truncate">{solicitante.nome}</span>
               </div>
