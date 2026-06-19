@@ -74,6 +74,9 @@ export function AgendamentoForm({
 
   const ehGestorOuMaster =
     usuarioAtual.perfil === "master" || usuarioAtual.perfil === "gestor";
+  // Só o Master agenda em nome de outra pessoa. Gestor e servidor agendam
+  // sempre em si mesmos (sem o seletor de solicitante).
+  const ehMaster = usuarioAtual.perfil === "master";
 
   const [solicitanteId, setSolicitanteId] = useState<string>(usuarioAtual.id);
   const [veiculoId, setVeiculoId] = useState<string>("");
@@ -509,7 +512,7 @@ export function AgendamentoForm({
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          {ehGestorOuMaster && (
+          {ehMaster && (
             <div className="space-y-2 md:col-span-2">
               <Label>Solicitante</Label>
               <Select value={solicitanteId} onValueChange={setSolicitanteId}>

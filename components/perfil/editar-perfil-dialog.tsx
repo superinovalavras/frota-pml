@@ -46,6 +46,11 @@ export function EditarPerfilDialog({ aberto, usuario, onClose }: Props) {
   const inputFotoRef = useRef<HTMLInputElement>(null);
   const { recarregar: recarregarUsuarios } = useUsuarios();
 
+  const [nome, setNome] = useState(usuario.nome ?? "");
+  const [cpf, setCpf] = useState(usuario.cpf ?? "");
+  const [masp, setMasp] = useState(usuario.masp ?? "");
+  const [email, setEmail] = useState(usuario.email ?? "");
+  const [cargo, setCargo] = useState(usuario.cargo ?? "");
   const [telefone, setTelefone] = useState(usuario.telefone ?? "");
   const [fotoUrl, setFotoUrl] = useState<string | null>(
     usuario.fotoUrl ?? null,
@@ -64,6 +69,11 @@ export function EditarPerfilDialog({ aberto, usuario, onClose }: Props) {
 
   useEffect(() => {
     if (!aberto) return;
+    setNome(usuario.nome ?? "");
+    setCpf(usuario.cpf ?? "");
+    setMasp(usuario.masp ?? "");
+    setEmail(usuario.email ?? "");
+    setCargo(usuario.cargo ?? "");
     setTelefone(usuario.telefone ?? "");
     setFotoUrl(usuario.fotoUrl ?? null);
     setCnhCategoria(usuario.cnhCategoria ?? "");
@@ -100,8 +110,17 @@ export function EditarPerfilDialog({ aberto, usuario, onClose }: Props) {
 
   function aoSalvar() {
     setErro(null);
+    if (!nome.trim()) {
+      setErro("Informe o nome.");
+      return;
+    }
     startTransition(async () => {
       const resultado = await atualizarMeuPerfil({
+        nome,
+        cpf,
+        masp,
+        email,
+        cargo,
         telefone,
         fotoUrl,
         cnhCategoria,
@@ -124,9 +143,8 @@ export function EditarPerfilDialog({ aberto, usuario, onClose }: Props) {
           <DialogHeader>
             <DialogTitle>Editar meu perfil</DialogTitle>
             <DialogDescription>
-              Você pode atualizar seus próprios dados de contato, foto e CNH.
-              Nome, cargo, função e secretaria só podem ser alterados pelo
-              Master.
+              Atualize seus dados pessoais, foto e CNH. Função, órgão e
+              superintendência (que definem seu acesso) só o Master altera.
             </DialogDescription>
           </DialogHeader>
 
@@ -176,6 +194,64 @@ export function EditarPerfilDialog({ aberto, usuario, onClose }: Props) {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ep-nome">Nome completo</Label>
+              <Input
+                id="ep-nome"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                disabled={pending}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="ep-cpf">CPF</Label>
+                <Input
+                  id="ep-cpf"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  inputMode="numeric"
+                  maxLength={14}
+                  placeholder="000.000.000-00"
+                  disabled={pending}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ep-masp">MASP</Label>
+                <Input
+                  id="ep-masp"
+                  value={masp}
+                  onChange={(e) => setMasp(e.target.value)}
+                  inputMode="numeric"
+                  disabled={pending}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ep-email">E-mail (usado no login)</Label>
+              <Input
+                id="ep-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="usuario@lavras.mg.gov.br"
+                disabled={pending}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ep-cargo">Cargo</Label>
+              <Input
+                id="ep-cargo"
+                value={cargo}
+                onChange={(e) => setCargo(e.target.value)}
+                placeholder="Ex.: Auditor Fiscal Municipal"
+                disabled={pending}
+              />
             </div>
 
             <div className="space-y-2">

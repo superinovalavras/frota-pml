@@ -29,6 +29,11 @@ const CATEGORIAS_CNH_VALIDAS: CategoriaCNH[] = [
 ];
 
 export interface EntradaMeuPerfil {
+  nome?: string;
+  cpf?: string;
+  masp?: string;
+  email?: string;
+  cargo?: string;
   telefone?: string;
   fotoUrl?: string | null;
   cnhCategoria?: string;
@@ -52,7 +57,7 @@ export async function atualizarMeuPerfil(
   const admin = criarSupabaseAdmin();
   const { data: perfil, error: errBusca } = await admin
     .from("profiles")
-    .select("id")
+    .select("id, email")
     .eq("auth_user_id", auth.user.id)
     .maybeSingle();
   if (errBusca || !perfil) {
@@ -61,6 +66,47 @@ export async function atualizarMeuPerfil(
 
   // Sanitização / validação leve. Strings vazias viram null para limpar campos.
   const update: ProfileUpdate = {};
+
+  if (entrada.nome !== undefined) {
+    const nome = entrada.nome.trim();
+    if (!nome) return { ok: false, erro: "O nome não pode ficar em branco." };
+    update.nome = nome;
+  }
+  if (entrada.cpf !== undefined) {
+    const dig = entrada.cpf.replace(/\D/g, "");
+    if (dig && dig.length !== 11) {
+      return { ok: false, erro: "CPF deve ter 11 dígitos (ou ficar em branco)." };
+    }
+    update.cpf = entrada.cpf.trim();
+  }
+  if (entrada.masp !== undefined) {
+    update.masp = entrada.masp.trim();
+  }
+  if (entrada.cargo !== undefined) {
+    update.cargo = entrada.cargo.trim();
+  }
+
+  // E-mail: muda o profile E sincroniza com o Supabase Auth (senão o login
+  // continuaria pedindo o e-mail antigo).
+  if (entrada.email !== undefined) {
+    const email = entrada.email.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { ok: false, erro: "E-mail inválido." };
+    }
+    if (email && email.toLowerCase() !== (perfil.email ?? "").toLowerCase()) {
+      const { error: errEmailAuth } = await admin.auth.admin.updateUserById(
+        auth.user.id,
+        { email, email_confirm: true },
+      );
+      if (errEmailAuth) {
+        return {
+          ok: false,
+          erro: `Não foi possível atualizar o e-mail de login: ${errEmailAuth.message}`,
+        };
+      }
+    }
+    update.email = email;
+  }
 
   if (entrada.telefone !== undefined) {
     update.telefone = entrada.telefone.trim();

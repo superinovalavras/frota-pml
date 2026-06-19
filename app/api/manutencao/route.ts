@@ -200,6 +200,23 @@ export async function POST(req: Request) {
     superintendenciaId: v.superintendencia_id,
   }));
 
+  // Notificação interna para TODOS os usuários: o veículo entrou em manutenção.
+  const nomeVeicManut =
+    [veiculo.marca, veiculo.modelo].filter(Boolean).join(" ").trim() ||
+    veiculo.modelo;
+  const { data: todos } = await admin.from("profiles").select("id");
+  await inserirNotificacoes(
+    admin,
+    (todos ?? []).map((p) => ({
+      destinatarioId: p.id,
+      tipo: "veiculo_manutencao" as const,
+      titulo: "Veículo em manutenção",
+      mensagem: `${veiculo.placa} · ${nomeVeicManut} entrou em manutenção.\nMotivo: ${motivoLimpo}\nPrevisão de retorno: ${previsaoRetorno}`,
+      veiculoId: veiculo.id,
+    })),
+    ator.profileId,
+  );
+
   let reservasCanceladas = 0;
   let emailsEnfileirados = 0;
 
@@ -402,20 +419,16 @@ export async function DELETE(req: Request) {
     );
   }
 
-  // Notificação interna (sino): avisa os gestores da secretaria que o
-  // veículo voltou e já pode ser reservado.
+  // Notificação interna (sino): avisa TODOS os usuários que o veículo voltou
+  // da manutenção e já pode ser reservado.
   const nomeVeic =
     [veiculo.marca, veiculo.modelo].filter(Boolean).join(" ").trim() ||
     veiculo.modelo;
-  const { data: gestores } = await admin
-    .from("profiles")
-    .select("id")
-    .eq("perfil", "gestor")
-    .eq("secretaria_id", veiculo.secretaria_id);
+  const { data: todos } = await admin.from("profiles").select("id");
   await inserirNotificacoes(
     admin,
-    (gestores ?? []).map((g) => ({
-      destinatarioId: g.id,
+    (todos ?? []).map((p) => ({
+      destinatarioId: p.id,
       tipo: "veiculo_liberado" as const,
       titulo: "Veículo liberado da manutenção",
       mensagem: `${veiculo.placa} · ${nomeVeic} voltou da manutenção e já está disponível para reservas.`,

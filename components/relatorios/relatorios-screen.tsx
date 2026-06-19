@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   CalendarCheck,
   Clock,
@@ -9,22 +9,38 @@ import {
   MapPin,
   Users,
   Gauge,
+  Filter,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAgendamentos } from "@/lib/store/agendamentos-context";
 import { useVeiculos } from "@/lib/store/veiculos-context";
 import { useUsuarios } from "@/lib/store/usuarios-context";
+import { useOrgaos } from "@/lib/store/orgaos-context";
 import { usePerfil } from "@/lib/perfil-context";
 import { filtrarVeiculosVisiveis } from "@/lib/visibilidade";
 import { rotuloStatusAgendamento } from "@/lib/formatters";
 import type { StatusAgendamento } from "@/lib/mock/types";
 
+const TODOS = "todos";
+
 export function RelatoriosScreen() {
   const { agendamentos } = useAgendamentos();
   const { veiculos } = useVeiculos();
-  const { buscarPorId: buscarUsuario } = useUsuarios();
+  const { buscarPorId: buscarUsuario, usuarios } = useUsuarios();
+  const { orgaos } = useOrgaos();
   const { usuario } = usePerfil();
+
+  const [filtroVeiculo, setFiltroVeiculo] = useState(TODOS);
+  const [filtroUsuario, setFiltroUsuario] = useState(TODOS);
+  const [filtroOrgao, setFiltroOrgao] = useState(TODOS);
 
   const visiveis = useMemo(
     () => filtrarVeiculosVisiveis(veiculos, usuario),
@@ -34,9 +50,36 @@ export function RelatoriosScreen() {
     () => new Set(visiveis.map((v) => v.id)),
     [visiveis],
   );
-  const ags = useMemo(
-    () => agendamentos.filter((a) => idsVisiveis.has(a.veiculoId)),
-    [agendamentos, idsVisiveis],
+  const ags = useMemo(() => {
+    return agendamentos.filter((a) => {
+      if (!idsVisiveis.has(a.veiculoId)) return false;
+      if (filtroVeiculo !== TODOS && a.veiculoId !== filtroVeiculo) return false;
+      if (
+        filtroUsuario !== TODOS &&
+        a.solicitanteId !== filtroUsuario &&
+        a.motoristaId !== filtroUsuario
+      ) {
+        return false;
+      }
+      if (filtroOrgao !== TODOS) {
+        const v = veiculos.find((x) => x.id === a.veiculoId);
+        if (!v || v.secretariaId !== filtroOrgao) return false;
+      }
+      return true;
+    });
+  }, [
+    agendamentos,
+    idsVisiveis,
+    veiculos,
+    filtroVeiculo,
+    filtroUsuario,
+    filtroOrgao,
+  ]);
+
+  const usuariosOrdenados = useMemo(
+    () =>
+      usuarios.slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+    [usuarios],
   );
 
   const agora = new Date();
@@ -135,6 +178,53 @@ export function RelatoriosScreen() {
           Visão analítica da frota — escopo limitado aos veículos visíveis ao
           seu perfil.
         </p>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Filter className="size-4" />
+          Filtrar:
+        </span>
+        <Select value={filtroVeiculo} onValueChange={setFiltroVeiculo}>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS}>Todos os veículos</SelectItem>
+            {visiveis.map((v) => (
+              <SelectItem key={v.id} value={v.id}>
+                {v.placa} — {v.modelo}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filtroUsuario} onValueChange={setFiltroUsuario}>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS}>Todos os usuários</SelectItem>
+            {usuariosOrdenados.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={filtroOrgao} onValueChange={setFiltroOrgao}>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={TODOS}>Todos os órgãos</SelectItem>
+            {orgaos.map((o) => (
+              <SelectItem key={o.id} value={o.id}>
+                {o.sigla} — {o.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* KPIs */}

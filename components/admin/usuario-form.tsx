@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, Car, Loader2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  Car,
+  CheckCircle2,
+  Loader2,
+  X,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +37,7 @@ import { lerArquivoComoDataUrl } from "@/lib/imagem";
 import { RecortadorFoto } from "@/components/recortador-foto";
 import { useSuperintendencias } from "@/lib/store/superintendencias-context";
 import { USUARIO_MASTER_ID } from "@/lib/mock/usuarios";
+import { salvarUsuarioAdmin } from "@/app/(dashboard)/admin/actions";
 import type { CategoriaCNH, Usuario } from "@/lib/mock/types";
 
 interface Props {
@@ -45,7 +53,7 @@ const SEM_VALOR = "_none";
 
 export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props) {
   const { funcoesOrdenadas, buscarPorId: buscarFuncao } = useFuncoes();
-  const { salvar, usuarios: todosUsuarios } = useUsuarios();
+  const { recarregar, usuarios: todosUsuarios } = useUsuarios();
   const { orgaos } = useOrgaos();
   const { porSecretaria: superintendenciasPorSecretaria } = useSuperintendencias();
   const editando = usuario !== null;
@@ -70,6 +78,8 @@ export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props
   );
   const [carregandoFoto, setCarregandoFoto] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [processando, setProcessando] = useState(false);
+  const [senhaNova, setSenhaNova] = useState<string | null>(null);
 
   useEffect(() => {
     if (!aberto) return;
@@ -109,6 +119,8 @@ export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props
     }
     setImagemParaRecortar(null);
     setErro(null);
+    setSenhaNova(null);
+    setProcessando(false);
   }, [aberto, usuario, funcoesOrdenadas, orgaos, funcaoInicialId]);
 
   async function aoSelecionarFoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -148,7 +160,7 @@ export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props
     }
   }, [secretariaId, supDoOrgao, superintendenciaId]);
 
-  function aoSalvar() {
+  async function aoSalvar() {
     setErro(null);
     const nomeLimpo = nome.trim();
     if (!nomeLimpo) {
@@ -232,8 +244,25 @@ export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props
     base.cnhValidade = cnhValidade || undefined;
     base.fotoUrl = fotoUrl;
 
-    salvar(base);
-    onClose();
+    setProcessando(true);
+    try {
+      const r = await salvarUsuarioAdmin(base);
+      if (!r.ok) {
+        setErro(r.erro);
+        return;
+      }
+      await recarregar();
+      if (r.senhaInicial) {
+        // Conta de login criada — mostra a senha inicial pro Master repassar.
+        setSenhaNova(r.senhaInicial);
+      } else {
+        onClose();
+      }
+    } catch {
+      setErro("Falha ao salvar. Verifique a conexão e tente de novo.");
+    } finally {
+      setProcessando(false);
+    }
   }
 
   return (
@@ -507,11 +536,40 @@ export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props
           </div>
         )}
 
+        {senhaNova && (
+          <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+            <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">Conta de login criada!</p>
+              <p className="text-muted-foreground mt-0.5">
+                Senha inicial:{" "}
+                <span className="font-mono font-semibold text-foreground">
+                  {senhaNova}
+                </span>
+                . Oriente a pessoa a entrar e trocar a senha em “Meu perfil”.
+              </p>
+            </div>
+          </div>
+        )}
+
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button onClick={aoSalvar}>Salvar</Button>
+          {senhaNova ? (
+            <Button onClick={onClose}>Concluir</Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={onClose}
+                disabled={processando}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={aoSalvar} disabled={processando}>
+                {processando && <Loader2 className="size-4 animate-spin" />}
+                Salvar
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
