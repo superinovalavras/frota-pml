@@ -240,6 +240,16 @@ no Claude. Para continuar em outra máquina/conta:
    RLS (`meu_profile_id()`, `eh_master()`, etc.) vêm da 0003.
 5. Deploy: push na `master` → Vercel faz deploy automático.
 
+**Trabalhando em mais de uma máquina/conta:**
+- O `git clone`/`pull` traz **só o código**. O **`.env.local` NÃO vem no git**
+  (segredos) — copie o arquivo à parte para a raiz do projeto, senão o app não
+  conecta no Supabase.
+- **`git pull` antes de `git push`** para não dar conflito entre as contas.
+- Quem cria uma migration nova precisa **aplicá-la no SQL Editor** do Supabase
+  (o git não aplica) e anotar aqui. Aplicadas em produção até hoje: **0001–0008**.
+- Acessos de **Supabase e Vercel** são da conta superinovalavras (separados do
+  git) — se for outra pessoa, convide-a nos dois painéis.
+
 ---
 
 ## Notas para o Claude
