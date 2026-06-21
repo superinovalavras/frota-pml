@@ -165,39 +165,80 @@ Tabelas principais (a detalhar nas migrations):
 
 ---
 
-## Fase Atual
+## Estado atual — OPERACIONAL (em produção)
 
-**Fase 2 — Integração com o Supabase, rumo a operacional.**
+Produção: **https://frota-pml.vercel.app** (Vercel) + Supabase
+(projeto `rjdfzpvqevdswumdlgnr`, org superinovalavras). GitHub:
+`superinovalavras/frota-pml`.
 
-A Fase 1 (frontend com mock data) está concluída. Agora:
+### Já funciona
+- **Auth + RLS real**: login por CPF/MASP/e-mail; RLS por perfil/secretaria
+  (migrations 0003/0006). `profiles.auth_user_id` liga o perfil à conta.
+- **Login obrigatório**: o `proxy.ts`/middleware redireciona sem sessão para
+  `/login`. **Modo demonstração foi REMOVIDO.** Após login há uma tela
+  "Carregando o sistema…" (`GateCarregando`) até sessão+dados prontos.
+- **Agenda** semanal (desktop) e **grade de 7 dias responsiva no celular**;
+  foto do veículo como fundo do bloco; "dia todo" ocupa a coluna; filtro por
+  veículo.
+- **Reservas**: criação, conflito de horário, **substituição por hierarquia**
+  (estritamente maior; empate não tira a vaga) com alternativas livres da frota.
+  Só o **Master** agenda em nome de outro; gestor/servidor só pra si.
+- **Hierarquia de funções com empate** (aba Admin › Hierarquia).
+- **Check-in/out** simplificado (sem foto/km) — dormente atrás de flag.
+- **Manutenção**: tira o veículo da lista, cancela reservas afetadas e
+  **notifica todos os usuários** (entra e sai).
+- **Sino de notificações** (tabela `notificacoes`, migration 0007): motorista
+  designado, reserva confirmada/cancelada/substituída, manutenção entra/sai,
+  passageiro incluído/removido. Polling 60s.
+- **Motoristas**: pool = função Motorista **ou** qualquer servidor com CNH
+  válida. Master cadastra motorista direto na aba (mesma base de usuários).
+- **Usuários**: Master cria/edita via `salvarUsuarioAdmin` (server action) que
+  **cria a conta de login no Supabase Auth** e **sincroniza o e-mail** com o
+  Auth. Auto-edição ampla do próprio perfil (nome, CPF, MASP, e-mail, cargo,
+  foto, telefone, CNH) — função/órgão/superintendência seguem Master-only.
+- **Trocar senha** própria (Meu perfil), mínimo 6 (padrão do Supabase Auth).
+- **Relatórios** com filtros por veículo, usuário e órgão.
+- **Marca**: logo personalizada (PNG, círculo) com reenquadrar.
 
-Feito (Fase 2a/2b):
-- Supabase conectado: clientes em `lib/supabase/`, acesso a dados em `lib/data/`.
-- Contextos (`orgaos`, `funcoes`, `usuarios`, `veiculos`, `agendamentos`, `branding`)
-  leem/gravam no Supabase em vez de localStorage.
-- Fotos (veículo, perfil, logo) vão para o Supabase Storage (bucket `imagens`),
-  via a rota `/api/imagens`.
-- Login real (CPF/MASP/e-mail + senha) com Supabase Auth; `profiles.auth_user_id`
-  vincula o perfil à conta. O "modo demonstração" (seletor de perfil) segue
-  disponível enquanto a RLS não estiver endurecida.
-- `middleware.ts` renova a sessão.
+### Flags (funcionalidades dormentes) — `lib/flags.ts`
+- `REGISTRO_PAINEL_ATIVO = false` — check-in/out sem foto/km (a portaria anota).
+- `NOTIFICACOES_EMAIL_ATIVAS = false` — e-mail (Resend) desligado; no lugar,
+  telefone de contato aparece nas reservas. Trocar p/ `true` reativa tudo.
 
-Pendente:
-- Aplicar a migration `0003_rls.sql` (RLS real por perfil/secretaria + trigger
-  que sincroniza `veiculos.status`). Só depois de validar o login. Quando
-  aplicada, o "modo demonstração" deixa de ver dados.
-- Auto-edição de "Meu perfil" (server action que restringe colunas).
-- Regra de conflito por hierarquia (substitui + notifica) — hoje só há detecção
-  de sobreposição em `lib/agendamento-utils.ts`.
-- Tabela `notificacoes` + envio de e-mail.
-- Superintendências ainda vêm de `lib/mock/superintendencias.ts` (estático) em
-  vários componentes; o banco já tem os dados.
-- Integrações opcionais (não bloqueiam o "operacional"): Google Calendar
-  (espelho de eventos), OCR do odômetro no check-in. Offline no check-in fica
-  para uma atualização futura.
+### Migrations (aplicadas manualmente no SQL Editor, em ordem)
+`0001`..`0007` **aplicadas em produção**. **`0008` (coluna `veiculos.lugares`)
+ainda NÃO foi aplicada** e o commit do código de "lugares" está **só local
+(não no GitHub)** — aplicar a 0008 antes de dar push, senão salvar veículo
+quebra (o mapper grava `lugares`). SQL:
+`alter table public.veiculos add column if not exists lugares int not null default 5;`
 
-Hospedagem alvo: Vercel + Supabase (planos gratuitos). Há `vercel.json` com um
-cron diário em `/api/keep-alive` para o projeto Supabase não pausar.
+### Operacional
+- Senha padrão de contas criadas: `Frota@Lavras2026` — **orientar a trocar**.
+- `vercel.json` tem cron diário em `/api/keep-alive` (Supabase não pausar) e
+  `/api/email/dispatch` (protegido por `CRON_SECRET`, inerte enquanto e-mail off).
+
+### Pendências / futuro (não bloqueiam o uso)
+- Aplicar a migration 0008 + push do código de lugares (acima).
+- Hierarquia hoje é **global** (o escopo previa por-secretaria) — evolução.
+- Lembrete antes da viagem (precisa job agendado).
+- Google Calendar (espelho) e OCR do odômetro — futuras.
+
+---
+
+## Onboarding / handoff (rodar em outra máquina/conta)
+
+O projeto vive em **GitHub + Supabase + Vercel** (conta superinovalavras), não
+no Claude. Para continuar em outra máquina/conta:
+
+1. `git clone https://github.com/superinovalavras/frota-pml.git` + `npm install`.
+2. Recriar **`.env.local`** (não vai no git — ver `.env.local.example`):
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable),
+   `SUPABASE_SERVICE_ROLE_KEY` (secret, só servidor), `RESEND_API_KEY`,
+   `EMAIL_REMETENTE`, `CRON_SECRET`. As mesmas chaves estão no Vercel.
+3. `npm run dev` → http://localhost:3000 (precisa de login real; sem modo demo).
+4. Migrations: aplicar pelo **SQL Editor** do Supabase, em ordem. As funções da
+   RLS (`meu_profile_id()`, `eh_master()`, etc.) vêm da 0003.
+5. Deploy: push na `master` → Vercel faz deploy automático.
 
 ---
 
