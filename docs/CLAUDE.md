@@ -205,24 +205,19 @@ Produção: **https://frota-pml.vercel.app** (Vercel) + Supabase
 - `NOTIFICACOES_EMAIL_ATIVAS = false` — e-mail (Resend) desligado; no lugar,
   telefone de contato aparece nas reservas. Trocar p/ `true` reativa tudo.
 
-### Migrations (aplicadas manualmente no SQL Editor, em ordem)
-`0001`..`0007` **aplicadas em produção**. Confirmar no painel se a **`0008`
-(coluna `veiculos.lugares`)** já foi aplicada — o código (mapper) grava
-`lugares`; sem a coluna, salvar veículo quebra. SQL:
-`alter table public.veiculos add column if not exists lugares int not null default 5;`
+### Migrations (aplicadas em ordem)
+`0001`..`0010` **aplicadas em produção** (projeto `rjdfzpvqevdswumdlgnr`,
+PostgreSQL 17.6). A `0008`..`0010` foram aplicadas em 22/06/2026 via
+`scripts/db-run.mjs` (conexão direta) — ver [ARQUITETURA §11](ARQUITETURA.md#11-aplicando-migrations).
 
-**`0009_integridade.sql` e `0010_privacidade.sql` — NÃO aplicadas ainda.**
-Vieram da revisão de segurança/integridade:
-- `0009`: anti-double-booking (constraint de exclusão), trigger que impede
-  servidor de auto-confirmar reserva, e índices únicos de CPF/MASP/e-mail.
-  **Antes de aplicar, rode as conferências do cabeçalho do arquivo** — se já
-  houver reservas sobrepostas ou CPF/MASP/e-mail duplicados em produção, a
-  criação das constraints falha até limpar os dados.
+Vindas da revisão de segurança/integridade:
+- `0009`: anti-double-booking (constraint de exclusão `agendamentos_sem_sobreposicao`),
+  trigger `agendamentos_guard_status` (só gestor/master confirma; respeita a
+  ordem do fluxo, sem impedir o solicitante de iniciar/concluir a própria
+  viagem) e índices únicos de CPF/MASP/e-mail.
 - `0010`: view `usuarios_visiveis` (mascara CPF/MASP para colegas comuns;
-  o app passou a LER usuários por ela) + restringe INSERT de notificações ao
-  alcance de visibilidade do autor. O código (`lib/data/frota.ts`) já lê a
-  view — **aplicar a 0010 antes do push**, senão a listagem de usuários
-  quebra (view inexistente).
+  `lib/data/frota.ts` lê os usuários por ela) + INSERT de notificações
+  restrito ao alcance de visibilidade do autor.
 
 ### Operacional
 - Senha padrão de contas criadas: `Frota@Lavras2026` — **orientar a trocar**.
