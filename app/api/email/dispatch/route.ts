@@ -7,10 +7,11 @@
  * que enfileira (ex.: /api/manutencao).
  *
  * Autorização:
- *   - Em produção, Vercel injeta `Authorization: Bearer ${CRON_SECRET}`
- *     se a env var existir; exigimos esse header.
- *   - Sem CRON_SECRET configurado a rota só aceita chamadas localhost
- *     (útil em dev). Em produção, sempre configure CRON_SECRET.
+ *   - Vercel injeta `Authorization: Bearer ${CRON_SECRET}`; exigimos esse
+ *     header sempre que `CRON_SECRET` estiver definido.
+ *   - Em produção, SEM `CRON_SECRET` a rota é recusada (não confiamos no
+ *     header Host, que é forjável). Em desenvolvimento (`NODE_ENV !==
+ *     "production"`) liberamos para facilitar testes locais.
  */
 import { NextResponse } from "next/server";
 import { processarFila } from "@/lib/email/dispatcher";
@@ -23,9 +24,8 @@ function autorizado(req: Request): boolean {
     const header = req.headers.get("authorization");
     return header === `Bearer ${secret}`;
   }
-  // Sem segredo configurado — permite só de localhost (dev).
-  const host = req.headers.get("host") ?? "";
-  return host.startsWith("localhost") || host.startsWith("127.0.0.1");
+  // Sem segredo: só em dev. Em produção, recusa (não dá para confiar no Host).
+  return process.env.NODE_ENV !== "production";
 }
 
 export async function GET(req: Request) {

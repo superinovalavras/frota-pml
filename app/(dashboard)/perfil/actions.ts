@@ -8,12 +8,13 @@ import type { Database } from "@/lib/supabase/types";
 type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 
 /**
- * Atualização do **próprio** perfil pelo usuário logado. Restringe-se às
- * colunas que o usuário pode mudar sozinho sem virar Master:
- *   telefone, foto_url, cnh_categoria, cnh_numero, cnh_validade.
+ * Atualização do **próprio** perfil pelo usuário logado (auto-edição ampla).
+ * Edita: nome, cpf, masp, email, cargo, telefone, foto_url e o bloco de CNH
+ * (categoria, número, validade). Mudança de e-mail é sincronizada com o
+ * Supabase Auth (senão o login continuaria pedindo o e-mail antigo).
  *
- * Nome, cargo, função, secretaria, CPF, MASP, email, etc. seguem só
- * editáveis pelo Master via /admin (a RLS 0003 endurece isso no banco).
+ * Função, secretaria, superintendência, perfil e hierarquia continuam
+ * editáveis SOMENTE pelo Master via /admin.
  */
 
 const CATEGORIAS_CNH_VALIDAS: CategoriaCNH[] = [
@@ -170,7 +171,8 @@ export async function atualizarMeuPerfil(
 
 /**
  * Troca a senha do PRÓPRIO usuário logado. Confere a senha atual antes
- * (login descartável, sem mexer na sessão) e exige mínimo de 8 caracteres.
+ * (login descartável, sem mexer na sessão) e exige mínimo de 6 caracteres
+ * (padrão do Supabase Auth).
  */
 export async function trocarMinhaSenha(
   senhaAtual: string,

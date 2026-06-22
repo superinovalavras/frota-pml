@@ -206,11 +206,23 @@ Produção: **https://frota-pml.vercel.app** (Vercel) + Supabase
   telefone de contato aparece nas reservas. Trocar p/ `true` reativa tudo.
 
 ### Migrations (aplicadas manualmente no SQL Editor, em ordem)
-`0001`..`0007` **aplicadas em produção**. **`0008` (coluna `veiculos.lugares`)
-ainda NÃO foi aplicada** e o commit do código de "lugares" está **só local
-(não no GitHub)** — aplicar a 0008 antes de dar push, senão salvar veículo
-quebra (o mapper grava `lugares`). SQL:
+`0001`..`0007` **aplicadas em produção**. Confirmar no painel se a **`0008`
+(coluna `veiculos.lugares`)** já foi aplicada — o código (mapper) grava
+`lugares`; sem a coluna, salvar veículo quebra. SQL:
 `alter table public.veiculos add column if not exists lugares int not null default 5;`
+
+**`0009_integridade.sql` e `0010_privacidade.sql` — NÃO aplicadas ainda.**
+Vieram da revisão de segurança/integridade:
+- `0009`: anti-double-booking (constraint de exclusão), trigger que impede
+  servidor de auto-confirmar reserva, e índices únicos de CPF/MASP/e-mail.
+  **Antes de aplicar, rode as conferências do cabeçalho do arquivo** — se já
+  houver reservas sobrepostas ou CPF/MASP/e-mail duplicados em produção, a
+  criação das constraints falha até limpar os dados.
+- `0010`: view `usuarios_visiveis` (mascara CPF/MASP para colegas comuns;
+  o app passou a LER usuários por ela) + restringe INSERT de notificações ao
+  alcance de visibilidade do autor. O código (`lib/data/frota.ts`) já lê a
+  view — **aplicar a 0010 antes do push**, senão a listagem de usuários
+  quebra (view inexistente).
 
 ### Operacional
 - Senha padrão de contas criadas: `Frota@Lavras2026` — **orientar a trocar**.

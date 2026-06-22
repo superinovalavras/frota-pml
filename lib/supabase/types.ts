@@ -205,7 +205,11 @@ export type Database = {
       email_outbox: TableShape<EmailOutboxRow>;
       notificacoes: TableShape<NotificacaoRow>;
     };
-    Views: { [_ in never]: never };
+    Views: {
+      // View de leitura de usuários com CPF/MASP mascarados (migration 0010).
+      // Mesmas colunas de profiles; só leitura.
+      usuarios_visiveis: { Row: ProfileRow; Relationships: [] };
+    };
     Functions: {
       novo_id: { Args: Record<string, never>; Returns: string };
     };

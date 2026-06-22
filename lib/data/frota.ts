@@ -107,8 +107,11 @@ export async function removerFuncao(id: string): Promise<void> {
 // Usuários (profiles)
 // ---------------------------------------------------------------------
 export async function listarUsuarios(): Promise<Usuario[]> {
+  // Lê pela view `usuarios_visiveis` (migration 0010): mesma visibilidade de
+  // linhas da RLS de profiles, mas com CPF/MASP mascarados para quem não é
+  // dono/master/gestor da secretaria. A escrita continua direto em `profiles`.
   const { data, error } = await supabaseBrowser()
-    .from("profiles")
+    .from("usuarios_visiveis")
     .select("*")
     .order("nome");
   return check(data, error, "listarUsuarios").map(usuarioFromRow);
