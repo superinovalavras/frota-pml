@@ -191,7 +191,13 @@ export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props
       setErro("MASP inválido.");
       return;
     }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!email.trim()) {
+      setErro(
+        "Informe o e-mail — é por ele que a pessoa acessa o sistema (login e senha).",
+      );
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setErro("Email inválido.");
       return;
     }
@@ -364,7 +370,9 @@ export function UsuarioForm({ aberto, usuario, onClose, funcaoInicialId }: Props
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="uf-email">Email institucional</Label>
+            <Label htmlFor="uf-email">
+              Email institucional <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="uf-email"
               type="email"
