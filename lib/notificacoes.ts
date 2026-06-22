@@ -8,6 +8,10 @@
  *
  * Substitui o canal de UI que existia via <AvisoArmazenamento /> e que
  * tinha sido removido sem reposição.
+ *
+ * Família de notificações (ver docs/ARQUITETURA.md §8): este são os TOASTS de
+ * UI — nada a ver com o banco. O "sininho" persistido está em
+ * data/notificacoes.ts + notificar-eventos.ts (cliente) + notificar-server.ts.
  */
 
 export type TipoNotificacao = "erro" | "ok" | "info";

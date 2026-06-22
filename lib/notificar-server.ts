@@ -2,6 +2,10 @@
  * Inserção de notificações internas a partir de rotas SERVER (admin client,
  * ignora RLS). Falha silenciosa: notificação nunca quebra a operação
  * principal (cancelamento, manutenção, etc.).
+ *
+ * Família de notificações (ver docs/ARQUITETURA.md §8): este é o emissor do
+ * SERVIDOR. Cliente = notificar-eventos.ts; CRUD do sino = data/notificacoes.ts;
+ * toasts de UI = notificacoes.ts.
  */
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Artefato de geração da apresentação (.pptx) — não é código do app.
+    ".pptx-build/**",
   ]),
 ]);
 

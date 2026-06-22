@@ -4,6 +4,10 @@
  * de rotas server (cancelar, substituir, manutenção) inserem direto lá.
  *
  * Todas as funções são fire-and-forget: nunca quebram a ação principal.
+ *
+ * Família de notificações (ver docs/ARQUITETURA.md §8): este é o emissor do
+ * CLIENTE. Servidor = notificar-server.ts; CRUD do sino = data/notificacoes.ts;
+ * toasts de UI = lib/notificacoes.ts.
  */
 "use client";
 

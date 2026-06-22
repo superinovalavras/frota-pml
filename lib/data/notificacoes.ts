@@ -3,6 +3,10 @@
  * A RLS garante: cada usuário só lê/atualiza as PRÓPRIAS notificações;
  * qualquer autenticado pode criar notificação para outra pessoa (é assim
  * que "motorista designado" chega ao motorista, por exemplo).
+ *
+ * Família de notificações (ver docs/ARQUITETURA.md §8): este é o CRUD do sino
+ * pelo navegador. Emissores de alto nível = notificar-eventos.ts (cliente) e
+ * notificar-server.ts (servidor); toasts de UI = lib/notificacoes.ts.
  */
 "use client";
 

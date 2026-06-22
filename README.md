@@ -6,6 +6,11 @@ controle de conflito, agenda visual, check-in/out e relatórios.
 
 Escopo completo: `docs/Gestao_Veiculos_Lavras_v1.docx` · Tutorial: `docs/FROTA-PML-Documentacao-e-Tutorial.docx`
 
+> **Novo no projeto?** Leia nesta ordem: (1) este README para rodar localmente,
+> (2) [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) para entender como o código é
+> organizado, (3) [`docs/CLAUDE.md`](docs/CLAUDE.md) para o estado atual e o que
+> já funciona.
+
 ## Stack
 
 - **Next.js 16** (App Router) + **React 19** + **Tailwind CSS 4** + shadcn/ui (Radix)
@@ -27,9 +32,16 @@ Escopo completo: `docs/Gestao_Veiculos_Lavras_v1.docx` · Tutorial: `docs/FROTA-
 
 ### Banco de dados
 
-As migrations estão em `supabase/migrations/`. Hoje aplicam-se pelo **SQL Editor**
-do painel (copiar/colar o conteúdo, na ordem). Quando a Supabase CLI estiver
-configurada (`supabase link`), dá para usar `supabase db push` / `supabase db reset`.
+As migrations estão em `supabase/migrations/`, numeradas e aplicadas **em ordem**.
+Três formas de aplicar:
+
+1. **SQL Editor** do painel — copiar/colar o conteúdo (forma histórica do projeto).
+2. **Script** `scripts/db-run.mjs` — via conexão direta, com conferências e
+   verificação. Requer `SUPABASE_DB_URL` no `.env.local` (connection string
+   "Session pooler" do painel). Ver
+   [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md#11-aplicando-migrations).
+3. **Supabase CLI** (`supabase db push`) — quando o `supabase link` estiver
+   configurado.
 
 | Arquivo | O quê |
 |---|---|
