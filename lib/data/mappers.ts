@@ -130,12 +130,16 @@ export function usuarioFromRow(r: Tables["profiles"]["Row"]): Usuario {
     authUserId: r.auth_user_id,
   };
 }
+/** CPF/MASP são guardados só com dígitos — o login busca por dígitos, então
+ *  guardar com máscara ("123.456.789-00") impediria o login por CPF/MASP. */
+const soDigitos = (v: string | undefined | null): string => (v ?? "").replace(/\D/g, "");
+
 export function usuarioToRow(u: Usuario): Tables["profiles"]["Insert"] {
   return {
     id: u.id,
     nome: u.nome,
-    cpf: u.cpf ?? "",
-    masp: u.masp ?? "",
+    cpf: soDigitos(u.cpf),
+    masp: soDigitos(u.masp),
     email: u.email ?? "",
     cargo: u.cargo ?? "",
     funcao_id: u.funcaoId,

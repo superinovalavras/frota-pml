@@ -78,10 +78,11 @@ export async function atualizarMeuPerfil(
     if (dig && dig.length !== 11) {
       return { ok: false, erro: "CPF deve ter 11 dígitos (ou ficar em branco)." };
     }
-    update.cpf = entrada.cpf.trim();
+    // Guardar só dígitos — o login busca por dígitos (CPF com máscara não logaria).
+    update.cpf = dig;
   }
   if (entrada.masp !== undefined) {
-    update.masp = entrada.masp.trim();
+    update.masp = entrada.masp.replace(/\D/g, "");
   }
   if (entrada.cargo !== undefined) {
     update.cargo = entrada.cargo.trim();
