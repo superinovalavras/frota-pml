@@ -139,6 +139,8 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
   // mas a aprovação de "pendente → confirmado" exige gestor ou master.
   const acoes = podeGerenciar
     ? proximosStatus(agendamento.status).filter((s) => {
+        // "Cancelar" removido a pedido — para tirar uma reserva, use "Excluir".
+        if (s === "cancelado") return false;
         if (s === "confirmado" && !ehGestorOuMaster) return false;
         return true;
       })
