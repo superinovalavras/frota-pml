@@ -98,7 +98,7 @@ type ManutencaoRow = {
   id: string;
   veiculo_id: string;
   motivo: string;
-  previsao_retorno: string; // date 'YYYY-MM-DD'
+  previsao_retorno: string | null; // date 'YYYY-MM-DD' (null = sem previsão)
   criado_por: string | null;
   criado_em: string;
   encerrado_em: string | null;

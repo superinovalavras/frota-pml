@@ -135,8 +135,8 @@ export interface Manutencao {
   veiculoId: string;
   motivo: string;
   /** Data prevista para retorno (YYYY-MM-DD). A manutenção é considerada
-   *  ativa até o fim deste dia. */
-  previsaoRetorno: string;
+   *  ativa até o fim deste dia. `null` = sem previsão (indeterminada). */
+  previsaoRetorno: string | null;
   /** Profile do master/gestor que registrou a manutenção. */
   criadoPor: string | null;
   criadoEm: string;

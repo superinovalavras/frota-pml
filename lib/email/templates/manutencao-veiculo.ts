@@ -33,7 +33,7 @@ interface PayloadReserva {
 }
 interface PayloadManutencao {
   motivo: string;
-  previsaoRetorno: string; // YYYY-MM-DD
+  previsaoRetorno: string | null; // YYYY-MM-DD, ou null = sem previsão
   registradoPor?: string;
 }
 interface PayloadAlternativa {
@@ -61,7 +61,9 @@ export function renderizarManutencaoVeiculo(
 
   const inicio = formatarDataHora(reserva.inicio);
   const fim = formatarDataHora(reserva.fim);
-  const previsao = formatarData(manut.previsaoRetorno);
+  const previsao = manut.previsaoRetorno
+    ? formatarData(manut.previsaoRetorno)
+    : "Sem previsão de retorno";
   const sa = saudacao(destinatarioNome);
 
   const assunto = `Reserva cancelada — veículo ${veiculo.placa} em manutenção`;

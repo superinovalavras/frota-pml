@@ -86,14 +86,23 @@ export async function POST(req: Request) {
     typeof veiculoId !== "string" ||
     !veiculoId ||
     typeof motivo !== "string" ||
-    !motivo.trim() ||
-    typeof previsaoRetorno !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(previsaoRetorno)
+    !motivo.trim()
   ) {
     return NextResponse.json(
-      { erro: "Parâmetros inválidos: exija veiculoId, motivo (texto), previsaoRetorno (YYYY-MM-DD)." },
+      { erro: "Parâmetros inválidos: exija veiculoId e motivo (texto)." },
       { status: 400 },
     );
+  }
+  // previsaoRetorno é OPCIONAL: "YYYY-MM-DD" ou ausente (= sem previsão).
+  let previsao: string | null = null;
+  if (typeof previsaoRetorno === "string" && previsaoRetorno.trim()) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(previsaoRetorno)) {
+      return NextResponse.json(
+        { erro: "previsaoRetorno deve ser uma data YYYY-MM-DD (ou ausente)." },
+        { status: 400 },
+      );
+    }
+    previsao = previsaoRetorno;
   }
   const motivoLimpo = motivo.trim();
 
@@ -134,16 +143,18 @@ export async function POST(req: Request) {
     );
   }
 
-  // Reservas afetadas: pendente/confirmado/em_andamento cujo INÍCIO seja
-  // até o fim do dia `previsaoRetorno` (inclusive).
-  // previsaoRetorno é date — o limite é o início do dia SEGUINTE.
-  const limite = `${previsaoRetorno}T23:59:59-03:00`;
-  const { data: reservasAfetadas, error: errResv } = await admin
+  // Reservas afetadas: ativas (pendente/confirmado/em_andamento). COM previsão,
+  // só as que começam até o fim daquele dia; SEM previsão (indeterminada),
+  // todas as ativas — o veículo sai por tempo indefinido.
+  let qReservas = admin
     .from("agendamentos")
     .select("*")
     .eq("veiculo_id", veiculoId)
-    .in("status", ["pendente", "confirmado", "em_andamento"])
-    .lte("inicio", limite);
+    .in("status", ["pendente", "confirmado", "em_andamento"]);
+  if (previsao) {
+    qReservas = qReservas.lte("inicio", `${previsao}T23:59:59-03:00`);
+  }
+  const { data: reservasAfetadas, error: errResv } = await qReservas;
   if (errResv) {
     return NextResponse.json(
       { erro: `Falha ao buscar reservas: ${errResv.message}` },
@@ -158,7 +169,7 @@ export async function POST(req: Request) {
     .insert({
       veiculo_id: veiculoId,
       motivo: motivoLimpo,
-      previsao_retorno: previsaoRetorno,
+      previsao_retorno: previsao,
       criado_por: ator.profileId,
     })
     .select("id")
@@ -211,7 +222,7 @@ export async function POST(req: Request) {
       destinatarioId: p.id,
       tipo: "veiculo_manutencao" as const,
       titulo: "Veículo em manutenção",
-      mensagem: `${veiculo.placa} · ${nomeVeicManut} entrou em manutenção.\nMotivo: ${motivoLimpo}\nPrevisão de retorno: ${previsaoRetorno}`,
+      mensagem: `${veiculo.placa} · ${nomeVeicManut} entrou em manutenção.\nMotivo: ${motivoLimpo}\nPrevisão de retorno: ${previsao ?? "sem previsão"}`,
       veiculoId: veiculo.id,
     })),
     ator.profileId,
@@ -268,7 +279,7 @@ export async function POST(req: Request) {
               [veiculo.marca, veiculo.modelo].filter(Boolean).join(" ").trim() ||
               veiculo.modelo,
           }) +
-          `\nMotivo: ${motivoLimpo}\nPrevisão de retorno: ${previsaoRetorno}`,
+          `\nMotivo: ${motivoLimpo}\nPrevisão de retorno: ${previsao ?? "sem previsão"}`,
         agendamentoId: r.id,
         veiculoId: veiculo.id,
       })),
@@ -309,7 +320,7 @@ export async function POST(req: Request) {
       },
       manutencao: {
         motivo: motivoLimpo,
-        previsaoRetorno,
+        previsaoRetorno: previsao,
         registradoPor: ator.nome,
       },
       alternativas: veiculosAlternativos,

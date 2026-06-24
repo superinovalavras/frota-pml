@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useVeiculos } from "@/lib/store/veiculos-context";
 import { useAgendamentos } from "@/lib/store/agendamentos-context";
 import { STATUS_AGENDAMENTO_ATIVOS } from "@/lib/agendamento-utils";
@@ -48,6 +49,7 @@ export function ManutencaoForm({
   const { recarregar: recarregarAgendamentos, agendamentos } = useAgendamentos();
   const [motivo, setMotivo] = useState("");
   const [previsao, setPrevisao] = useState("");
+  const [semPrevisao, setSemPrevisao] = useState(false);
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -55,6 +57,7 @@ export function ManutencaoForm({
     if (!aberto) return;
     setMotivo("");
     setPrevisao("");
+    setSemPrevisao(false);
     setProcessando(false);
     setErro(null);
   }, [aberto]);
@@ -62,14 +65,18 @@ export function ManutencaoForm({
   // Reservas que seriam canceladas se a manutenção fosse criada agora com
   // a previsão informada. Atualiza ao vivo conforme a data muda.
   const reservasAfetadas = (() => {
-    if (manutencaoAtiva || !previsao) return [];
-    const fimDoDia = new Date(`${previsao}T23:59:59`);
-    if (Number.isNaN(fimDoDia.getTime())) return [];
-    return agendamentos.filter(
+    if (manutencaoAtiva) return [];
+    const ativas = agendamentos.filter(
       (a) =>
         a.veiculoId === veiculo.id &&
-        STATUS_AGENDAMENTO_ATIVOS.includes(a.status) &&
-        new Date(a.inicio).getTime() <= fimDoDia.getTime(),
+        STATUS_AGENDAMENTO_ATIVOS.includes(a.status),
+    );
+    if (semPrevisao) return ativas; // indeterminada: todas as reservas ativas
+    if (!previsao) return [];
+    const fimDoDia = new Date(`${previsao}T23:59:59`);
+    if (Number.isNaN(fimDoDia.getTime())) return [];
+    return ativas.filter(
+      (a) => new Date(a.inicio).getTime() <= fimDoDia.getTime(),
     );
   })();
 
@@ -85,8 +92,8 @@ export function ManutencaoForm({
       setErro("Informe o motivo da manutenção.");
       return;
     }
-    if (!previsao) {
-      setErro("Informe a previsão de retorno.");
+    if (!semPrevisao && !previsao) {
+      setErro("Informe a previsão de retorno, ou marque 'Sem previsão ainda'.");
       return;
     }
     setProcessando(true);
@@ -97,7 +104,7 @@ export function ManutencaoForm({
         body: JSON.stringify({
           veiculoId: veiculo.id,
           motivo: motivo.trim(),
-          previsaoRetorno: previsao,
+          previsaoRetorno: semPrevisao ? null : previsao,
         }),
       });
       const json = (await resp.json()) as { erro?: string };
@@ -160,7 +167,9 @@ export function ManutencaoForm({
               <div>
                 <p className="text-muted-foreground text-xs">Previsão de retorno</p>
                 <p className="font-medium">
-                  {formatarData(manutencaoAtiva.previsaoRetorno)}
+                  {manutencaoAtiva.previsaoRetorno
+                    ? formatarData(manutencaoAtiva.previsaoRetorno)
+                    : "Sem previsão"}
                 </p>
               </div>
               <div>
@@ -229,14 +238,34 @@ export function ManutencaoForm({
                   value={previsao}
                   min={dataMinima}
                   onChange={(e) => setPrevisao(e.target.value)}
-                  disabled={processando}
+                  disabled={processando || semPrevisao}
                 />
+                <div className="flex items-center justify-between rounded-md border border-dashed p-2.5">
+                  <Label
+                    htmlFor="mf-sem-previsao"
+                    className="cursor-pointer text-sm font-normal"
+                  >
+                    Sem previsão ainda
+                  </Label>
+                  <Switch
+                    id="mf-sem-previsao"
+                    checked={semPrevisao}
+                    onCheckedChange={(v) => {
+                      setSemPrevisao(v);
+                      if (v) setPrevisao("");
+                      setErro(null);
+                    }}
+                    disabled={processando}
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  O veículo ficará indisponível até o fim deste dia.
+                  {semPrevisao
+                    ? "Indisponível por tempo indeterminado — todas as reservas ativas deste veículo serão canceladas."
+                    : "O veículo ficará indisponível até o fim deste dia."}
                 </p>
               </div>
 
-              {previsao && (
+              {(semPrevisao || previsao) && (
                 <div className="rounded-md border bg-muted/30 p-3 text-sm">
                   {reservasAfetadas.length === 0 ? (
                     <p className="text-muted-foreground">
