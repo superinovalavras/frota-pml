@@ -8,6 +8,10 @@
     {
       "path": "/api/email/dispatch",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/agendamentos/expirar",
+      "schedule": "0 8 * * *"
     }
   ]
 }
