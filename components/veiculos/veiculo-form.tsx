@@ -40,6 +40,11 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
     (usuario.perfil === "master" ||
       (usuario.perfil === "gestor" && veiculo.secretariaId === usuario.secretariaId));
 
+  // Cadastrar/editar/excluir veículo é só do Master (a RLS também só permite
+  // master). Para os demais, o form fica em modo leitura — gestor ainda pode
+  // abrir a Manutenção dos veículos da própria secretaria.
+  const podeEditar = usuario.perfil === "master";
+
   const [nome, setNome] = useState("");
   const [placa, setPlaca] = useState("");
   const [lugares, setLugares] = useState("5");
@@ -182,11 +187,16 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {modo === "criar" ? "Novo veículo" : "Editar veículo"}
+            {modo === "criar"
+              ? "Novo veículo"
+              : podeEditar
+                ? "Editar veículo"
+                : "Veículo"}
           </DialogTitle>
           <DialogDescription>
-            Cadastro simplificado da Fase 1 — outros campos serão adicionados
-            adiante.
+            {podeEditar
+              ? "Dados do veículo da frota."
+              : "Detalhes do veículo (somente leitura)."}
           </DialogDescription>
         </DialogHeader>
 
@@ -213,7 +223,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
                   <Loader2 className="size-6 animate-spin" />
                 </div>
               )}
-              {fotoUrl && !carregandoFoto && (
+              {fotoUrl && !carregandoFoto && podeEditar && (
                 <Button
                   type="button"
                   variant="secondary"
@@ -233,17 +243,19 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               className="hidden"
               onChange={aoSelecionarFoto}
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => inputFotoRef.current?.click()}
-              disabled={carregandoFoto}
-            >
-              <Camera className="size-4" />
-              {fotoUrl ? "Trocar foto" : "Adicionar foto"}
-            </Button>
+            {podeEditar && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => inputFotoRef.current?.click()}
+                disabled={carregandoFoto}
+              >
+                <Camera className="size-4" />
+                {fotoUrl ? "Trocar foto" : "Adicionar foto"}
+              </Button>
+            )}
           </div>
 
           {/* Nome */}
@@ -254,7 +266,8 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex.: Fiat Mobi"
-              autoFocus
+              autoFocus={podeEditar}
+              disabled={!podeEditar}
             />
           </div>
 
@@ -269,6 +282,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
                 placeholder="Ex.: PYT-6155"
                 maxLength={10}
                 className="uppercase tracking-wide"
+                disabled={!podeEditar}
               />
             </div>
             <div className="space-y-2">
@@ -282,6 +296,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
                 value={lugares}
                 onChange={(e) => setLugares(e.target.value)}
                 placeholder="5"
+                disabled={!podeEditar}
               />
             </div>
           </div>
@@ -295,6 +310,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               onChange={(e) => setObservacoes(e.target.value)}
               placeholder="Particularidades, restrições, lembretes…"
               rows={3}
+              disabled={!podeEditar}
             />
           </div>
 
@@ -307,7 +323,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
         </div>
 
         <DialogFooter className="flex-row sm:justify-between gap-2">
-          {modo === "editar" ? (
+          {modo === "editar" && (podeEditar || podeGerenciarManutencao) ? (
             confirmarExclusao ? (
               <div className="flex gap-2">
                 <Button
@@ -329,16 +345,18 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               </div>
             ) : (
               <div className="flex gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setConfirmarExclusao(true)}
-                >
-                  <Trash2 className="size-4" />
-                  Excluir
-                </Button>
+                {podeEditar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setConfirmarExclusao(true)}
+                  >
+                    <Trash2 className="size-4" />
+                    Excluir
+                  </Button>
+                )}
                 {podeGerenciarManutencao && (
                   <Button
                     type="button"
@@ -360,11 +378,13 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
 
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              {podeEditar ? "Cancelar" : "Fechar"}
             </Button>
-            <Button type="button" onClick={aoSalvar}>
-              Salvar
-            </Button>
+            {podeEditar && (
+              <Button type="button" onClick={aoSalvar}>
+                Salvar
+              </Button>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>

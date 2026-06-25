@@ -47,10 +47,12 @@ export function VeiculosScreen() {
             {usuario.perfil !== "master" && " (visíveis para você)"}
           </p>
         </div>
-        <Button onClick={abrirNovo}>
-          <Plus className="size-4" />
-          Novo veículo
-        </Button>
+        {usuario.perfil === "master" && (
+          <Button onClick={abrirNovo}>
+            <Plus className="size-4" />
+            Novo veículo
+          </Button>
+        )}
       </div>
 
       {visiveis.length === 0 ? (
@@ -63,10 +65,12 @@ export function VeiculosScreen() {
                 Cadastre o primeiro veículo da frota.
               </p>
             </div>
-            <Button onClick={abrirNovo} className="mt-2">
-              <Plus className="size-4" />
-              Adicionar veículo
-            </Button>
+            {usuario.perfil === "master" && (
+              <Button onClick={abrirNovo} className="mt-2">
+                <Plus className="size-4" />
+                Adicionar veículo
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
