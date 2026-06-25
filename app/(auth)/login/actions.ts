@@ -5,10 +5,12 @@ import { criarSupabaseServer, criarSupabaseAdmin } from "@/lib/supabase/server";
 export type EstadoLogin = { erro: string } | { ok: true } | null;
 
 /**
- * Login: aceita e-mail, CPF ou MASP + senha.
- * - Com "@": trata como e-mail.
- * - Sem "@": só dígitos → procura em profiles.cpf / profiles.masp para
- *   descobrir o e-mail (consulta admin, ignora RLS).
+ * Login: aceita usuário, e-mail, CPF ou MASP + senha.
+ * - Com "@": trata como e-mail completo.
+ * - Sem "@", só dígitos → procura em profiles.cpf / profiles.masp.
+ * - Sem "@", com letras → trata como "usuário" (a parte antes do @) e procura
+ *   o e-mail que começa com "{usuário}@".
+ * As consultas usam o cliente admin (ignora RLS) só para descobrir o e-mail.
  */
 export async function entrar(
   _prev: EstadoLogin,
@@ -22,21 +24,40 @@ export async function entrar(
 
   let email = identificador;
   if (!identificador.includes("@")) {
-    const digitos = identificador.replace(/\D/g, "");
-    if (!digitos) return { erro: "Informe um e-mail válido, ou um CPF/MASP." };
+    const ehSoDigitos = /^\d+$/.test(identificador);
     try {
       const admin = criarSupabaseAdmin();
-      const { data, error } = await admin
-        .from("profiles")
-        .select("email")
-        .or(`cpf.eq.${digitos},masp.eq.${digitos}`)
-        .neq("email", "")
-        .limit(1)
-        .maybeSingle();
-      if (error || !data?.email) return { erro: "CPF/MASP não encontrado." };
-      email = data.email;
+      if (ehSoDigitos) {
+        // CPF ou MASP (só dígitos).
+        const { data, error } = await admin
+          .from("profiles")
+          .select("email")
+          .or(`cpf.eq.${identificador},masp.eq.${identificador}`)
+          .neq("email", "")
+          .limit(1)
+          .maybeSingle();
+        if (error || !data?.email) return { erro: "CPF/MASP não encontrado." };
+        email = data.email;
+      } else {
+        // "Usuário" = parte antes do @ (ex.: "joao.silva"). Escapa curingas
+        // do LIKE para casar a parte local exatamente.
+        const esc = identificador.replace(/[%_\\]/g, "\\$&");
+        const { data, error } = await admin
+          .from("profiles")
+          .select("email")
+          .ilike("email", `${esc}@%`)
+          .neq("email", "")
+          .limit(1)
+          .maybeSingle();
+        if (error || !data?.email) {
+          return { erro: "Usuário não encontrado. Tente o e-mail completo." };
+        }
+        email = data.email;
+      }
     } catch {
-      return { erro: "Não foi possível validar o CPF/MASP. Tente pelo e-mail." };
+      return {
+        erro: "Não foi possível validar o acesso. Tente pelo e-mail completo.",
+      };
     }
   }
 

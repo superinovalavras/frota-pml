@@ -72,14 +72,18 @@ export default function LoginPage() {
 
           <form action={acao} className="px-6 pt-4 pb-8 space-y-4">
             <div className="space-y-1.5 text-left">
-              <Label htmlFor="identificador">CPF, MASP ou e-mail</Label>
+              <Label htmlFor="identificador">Usuário, CPF, MASP ou e-mail</Label>
               <Input
                 id="identificador"
                 name="identificador"
                 autoComplete="username"
                 required
-                placeholder="seu.email@lavras.mg.gov.br"
+                placeholder="Ex.: joao.silva"
               />
+              <p className="text-[11px] text-muted-foreground">
+                Você pode usar só o <strong>usuário</strong> — a parte do seu
+                e-mail antes do <strong>@</strong>.
+              </p>
             </div>
             <div className="space-y-1.5 text-left">
               <Label htmlFor="senha">Senha</Label>
