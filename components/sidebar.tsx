@@ -165,7 +165,7 @@ function ConteudoSidebar({
       </nav>
 
       <div className="px-4 py-3 border-t flex items-center justify-between text-[11px] text-muted-foreground">
-        <span>v0.1.0 · Build de demonstração</span>
+        <span>FROTA PML · v1.0</span>
         <span className="inline-flex items-center gap-1.5">
           <span className="size-2 rounded-full bg-pml-blue" />
           <span className="size-2 rounded-full bg-pml-yellow" />
