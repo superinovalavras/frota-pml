@@ -277,15 +277,17 @@ export function AgendamentoForm({
     if (!destino.trim()) return { ok: false, erro: "Informe o destino." };
     if (!finalidade.trim()) return { ok: false, erro: "Informe a finalidade." };
 
-    // Ocupantes = motorista (1) + passageiros. Não pode passar dos lugares.
-    if (veiculo?.lugares) {
-      const ocupantes = passageiros.length + 1;
-      if (ocupantes > veiculo.lugares) {
-        return {
-          ok: false,
-          erro: `Este veículo tem ${veiculo.lugares} lugar${veiculo.lugares === 1 ? "" : "es"}. Com o motorista e ${passageiros.length} passageiro${passageiros.length === 1 ? "" : "s"} são ${ocupantes} ocupantes. Reduza os passageiros ou escolha outro veículo.`,
-        };
-      }
+    // Ocupantes = motorista (1) + passageiros. A checagem roda SEMPRE; se o
+    // veículo vier sem "lugares" (dado antigo/cache), assume 5 — assim nunca
+    // deixa passar mais gente do que cabe.
+    const lugares =
+      veiculo?.lugares && veiculo.lugares > 0 ? veiculo.lugares : 5;
+    const ocupantes = passageiros.length + 1;
+    if (ocupantes > lugares) {
+      return {
+        ok: false,
+        erro: `Este veículo tem ${lugares} lugar${lugares === 1 ? "" : "es"}. Com o motorista e ${passageiros.length} passageiro${passageiros.length === 1 ? "" : "s"} são ${ocupantes} ocupantes. Reduza os passageiros ou escolha outro veículo.`,
+      };
     }
 
     let motoristaResolvido: string | null = null;
