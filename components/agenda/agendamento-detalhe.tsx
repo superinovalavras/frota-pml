@@ -133,15 +133,13 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
     usuarioAtual.id === agendamento.solicitanteId ||
     usuarioAtual.id === agendamento.motoristaId;
 
-  const ehGestorOuMaster =
-    usuarioAtual.perfil === "master" || usuarioAtual.perfil === "gestor";
-  // Solicitante/motorista podem mover o próprio fluxo (iniciar/concluir/cancelar),
-  // mas a aprovação de "pendente → confirmado" exige gestor ou master.
+  // Solicitante e motorista podem mover o próprio fluxo, INCLUSIVE confirmar a
+  // própria viagem. A RLS + o trigger guard_agendamento_status garantem a regra
+  // real no banco (solicitante / motorista / gestor do veículo / master).
   const acoes = podeGerenciar
     ? proximosStatus(agendamento.status).filter((s) => {
         // "Cancelar" removido a pedido — para tirar uma reserva, use "Excluir".
         if (s === "cancelado") return false;
-        if (s === "confirmado" && !ehGestorOuMaster) return false;
         return true;
       })
     : [];
