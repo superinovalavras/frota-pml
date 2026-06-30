@@ -3,7 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { criarSupabaseAdmin, criarSupabaseServer } from "@/lib/supabase/server";
 import { usuarioToRow } from "@/lib/data/mappers";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, PerfilDb } from "@/lib/supabase/types";
 import type { Usuario } from "@/lib/mock/types";
 
 /** Senha inicial de contas criadas pelo Master (a pessoa troca depois). */
@@ -16,7 +16,8 @@ export type ResultadoUsuario =
 type Admin = SupabaseClient<Database>;
 
 async function exigirMaster(): Promise<
-  { ok: true; admin: Admin } | { ok: false; erro: string }
+  { ok: true; admin: Admin; atorProfileId: string | null }
+  | { ok: false; erro: string }
 > {
   const supa = await criarSupabaseServer();
   const { data: auth } = await supa.auth.getUser();
@@ -24,13 +25,13 @@ async function exigirMaster(): Promise<
   const admin = criarSupabaseAdmin();
   const { data: ator } = await admin
     .from("profiles")
-    .select("perfil")
+    .select("id, perfil")
     .eq("auth_user_id", auth.user.id)
     .maybeSingle();
   if (ator?.perfil !== "master") {
     return { ok: false, erro: "Apenas o Master pode gerenciar usuários." };
   }
-  return { ok: true, admin };
+  return { ok: true, admin, atorProfileId: ator.id };
 }
 
 async function acharAuthPorEmail(
@@ -112,4 +113,64 @@ export async function salvarUsuarioAdmin(
   }
 
   return { ok: true, senhaInicial };
+}
+
+/**
+ * Promove/rebaixa um usuário a Master (nível de acesso). Só mexe na coluna
+ * `perfil` — a função organizacional (`funcao_id`) é preservada: Master é um
+ * nível de acesso por cima do cargo. Ao rebaixar, `perfil` volta a refletir o
+ * nível de acesso da função atual da pessoa.
+ *
+ * Pode haver vários masters. Regra de segurança: o master logado NÃO pode
+ * rebaixar a si mesmo (evita trancar-se fora do sistema).
+ */
+export async function definirMaster(
+  usuarioId: string,
+  ehMaster: boolean,
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const aut = await exigirMaster();
+  if (!aut.ok) return aut;
+  const { admin, atorProfileId } = aut;
+
+  if (!ehMaster && usuarioId === atorProfileId) {
+    return {
+      ok: false,
+      erro: "Você não pode remover o seu próprio acesso Master.",
+    };
+  }
+
+  const { data: alvo, error: errBusca } = await admin
+    .from("profiles")
+    .select("id, perfil, funcao_id")
+    .eq("id", usuarioId)
+    .maybeSingle();
+  if (errBusca || !alvo) {
+    return { ok: false, erro: "Usuário não encontrado." };
+  }
+
+  let novoPerfil: PerfilDb;
+  if (ehMaster) {
+    novoPerfil = "master";
+  } else {
+    // Rebaixar: perfil volta ao nível de acesso da função atual da pessoa.
+    const { data: funcao } = await admin
+      .from("funcoes")
+      .select("nivel_acesso")
+      .eq("id", alvo.funcao_id)
+      .maybeSingle();
+    // Se a própria função já for de nível master (a função "Master"), cai para
+    // gestor para que o rebaixamento tenha efeito.
+    const nivel = (funcao?.nivel_acesso ?? "servidor") as PerfilDb;
+    novoPerfil = nivel === "master" ? "gestor" : nivel;
+  }
+
+  const { error: errUp } = await admin
+    .from("profiles")
+    .update({ perfil: novoPerfil })
+    .eq("id", usuarioId);
+  if (errUp) {
+    return { ok: false, erro: `Falha ao atualizar acesso: ${errUp.message}` };
+  }
+
+  return { ok: true };
 }

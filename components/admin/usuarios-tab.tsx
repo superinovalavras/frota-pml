@@ -8,22 +8,29 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useFuncoes } from "@/lib/store/funcoes-context";
 import { useOrgaos } from "@/lib/store/orgaos-context";
+import { usePerfil } from "@/lib/perfil-context";
 import { UsuarioForm } from "./usuario-form";
+import { definirMaster } from "@/app/(dashboard)/admin/actions";
 import { USUARIO_MASTER_ID } from "@/lib/mock/usuarios";
 import type { Usuario } from "@/lib/mock/types";
 
 export function UsuariosTab() {
-  const { usuarios, remover } = useUsuarios();
+  const { usuarios, remover, recarregar } = useUsuarios();
   const { buscarPorId: buscarFuncao } = useFuncoes();
   const { buscarPorId: buscarOrgao } = useOrgaos();
+  const { usuario: usuarioAtual } = usePerfil();
   const { confirmar, avisar } = useConfirmacao();
   const [editando, setEditando] = useState<Usuario | null>(null);
   const [criando, setCriando] = useState(false);
   const [busca, setBusca] = useState("");
+  const [alterandoMasterId, setAlterandoMasterId] = useState<string | null>(
+    null,
+  );
 
   const filtrados = useMemo(() => {
     const ordenados = usuarios.slice().sort((a, b) => {
@@ -55,6 +62,45 @@ export function UsuariosTab() {
       rotuloOk: "Excluir",
     });
     if (ok) remover(u.id);
+  }
+
+  async function alternarMaster(u: Usuario, valor: boolean) {
+    // Bloqueia o master logado de remover o próprio acesso (evita lockout).
+    if (!valor && u.id === usuarioAtual.id) {
+      await avisar({
+        titulo: "Não permitido",
+        mensagem: "Você não pode remover o seu próprio acesso Master.",
+      });
+      return;
+    }
+    const ok = await confirmar({
+      titulo: valor
+        ? `Tornar "${u.nome}" Master?`
+        : `Remover acesso Master de "${u.nome}"?`,
+      mensagem: valor
+        ? "A pessoa passa a ter acesso total ao sistema (todos os órgãos, gestão de usuários, veículos e configurações). A função/cargo atual é mantida."
+        : "A pessoa perde o acesso de Master e volta ao nível de acesso da função atual dela.",
+      destrutivo: !valor,
+      rotuloOk: valor ? "Tornar Master" : "Remover acesso",
+    });
+    if (!ok) return;
+
+    setAlterandoMasterId(u.id);
+    try {
+      const r = await definirMaster(u.id, valor);
+      if (!r.ok) {
+        await avisar({ titulo: "Não foi possível", mensagem: r.erro });
+        return;
+      }
+      await recarregar();
+    } catch {
+      await avisar({
+        titulo: "Falha",
+        mensagem: "Não foi possível alterar o acesso. Tente novamente.",
+      });
+    } finally {
+      setAlterandoMasterId(null);
+    }
   }
 
   return (
@@ -115,7 +161,7 @@ export function UsuariosTab() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium truncate">{u.nome}</span>
-                      {funcao?.ehMaster && (
+                      {u.perfil === "master" && (
                         <Badge variant="secondary" className="gap-1">
                           <Shield className="size-3" /> Master
                         </Badge>
@@ -150,7 +196,35 @@ export function UsuariosTab() {
                       {orgao ? ` · ${orgao.sigla}` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-3">
+                    <label
+                      className="hidden sm:flex items-center gap-2 select-none"
+                      title={
+                        u.id === usuarioAtual.id
+                          ? "Você não pode remover o próprio acesso Master"
+                          : "Conceder/remover acesso Master"
+                      }
+                    >
+                      <Shield
+                        className={
+                          u.perfil === "master"
+                            ? "size-4 text-primary"
+                            : "size-4 text-muted-foreground"
+                        }
+                      />
+                      <span className="text-xs text-muted-foreground">
+                        Master
+                      </span>
+                      <Switch
+                        checked={u.perfil === "master"}
+                        disabled={
+                          alterandoMasterId === u.id ||
+                          (u.perfil === "master" && u.id === usuarioAtual.id)
+                        }
+                        onCheckedChange={(v) => alternarMaster(u, v)}
+                        aria-label={`Acesso Master de ${u.nome}`}
+                      />
+                    </label>
                     <Button
                       variant="ghost"
                       size="icon"
