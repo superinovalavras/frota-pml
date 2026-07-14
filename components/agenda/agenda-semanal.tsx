@@ -369,7 +369,7 @@ export function AgendaSemanal() {
               {horas.map((h) => (
                 <div
                   key={h}
-                  className="text-[10px] md:text-xs text-muted-foreground px-1 md:px-2 text-right -mt-2"
+                  className="text-[10px] md:text-xs text-muted-foreground px-1 md:px-2 text-right relative -top-2"
                   style={{ height: ALTURA_HORA }}
                 >
                   {h.toString().padStart(2, "0")}
