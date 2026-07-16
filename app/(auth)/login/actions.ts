@@ -1,17 +1,11 @@
 "use server";
 
-import { criarSupabaseServer, criarSupabaseAdmin } from "@/lib/supabase/server";
+import { criarSupabaseServer } from "@/lib/supabase/server";
+import { resolverEmailDoIdentificador } from "@/lib/auth/identificador";
 
 export type EstadoLogin = { erro: string } | { ok: true } | null;
 
-/**
- * Login: aceita usuário, e-mail, CPF ou MASP + senha.
- * - Com "@": trata como e-mail completo.
- * - Sem "@", só dígitos → procura em profiles.cpf / profiles.masp.
- * - Sem "@", com letras → trata como "usuário" (a parte antes do @) e procura
- *   o e-mail que começa com "{usuário}@".
- * As consultas usam o cliente admin (ignora RLS) só para descobrir o e-mail.
- */
+/** Login: aceita usuário, e-mail, CPF ou MASP + senha. */
 export async function entrar(
   _prev: EstadoLogin,
   formData: FormData,
@@ -22,43 +16,22 @@ export async function entrar(
     return { erro: "Informe o identificador e a senha." };
   }
 
-  let email = identificador;
-  if (!identificador.includes("@")) {
-    const ehSoDigitos = /^\d+$/.test(identificador);
-    try {
-      const admin = criarSupabaseAdmin();
-      if (ehSoDigitos) {
-        // CPF ou MASP (só dígitos).
-        const { data, error } = await admin
-          .from("profiles")
-          .select("email")
-          .or(`cpf.eq.${identificador},masp.eq.${identificador}`)
-          .neq("email", "")
-          .limit(1)
-          .maybeSingle();
-        if (error || !data?.email) return { erro: "CPF/MASP não encontrado." };
-        email = data.email;
-      } else {
-        // "Usuário" = parte antes do @ (ex.: "joao.silva"). Escapa curingas
-        // do LIKE para casar a parte local exatamente.
-        const esc = identificador.replace(/[%_\\]/g, "\\$&");
-        const { data, error } = await admin
-          .from("profiles")
-          .select("email")
-          .ilike("email", `${esc}@%`)
-          .neq("email", "")
-          .limit(1)
-          .maybeSingle();
-        if (error || !data?.email) {
-          return { erro: "Usuário não encontrado. Tente o e-mail completo." };
-        }
-        email = data.email;
-      }
-    } catch {
+  let email: string;
+  try {
+    const r = await resolverEmailDoIdentificador(identificador);
+    if (!r.email) {
       return {
-        erro: "Não foi possível validar o acesso. Tente pelo e-mail completo.",
+        erro:
+          r.tipo === "cpf_masp"
+            ? "CPF/MASP não encontrado."
+            : "Usuário não encontrado. Tente o e-mail completo.",
       };
     }
+    email = r.email;
+  } catch {
+    return {
+      erro: "Não foi possível validar o acesso. Tente pelo e-mail completo.",
+    };
   }
 
   const supabase = await criarSupabaseServer();

@@ -2,11 +2,20 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "./types";
 
+/** Rotas que funcionam sem sessão (o resto vai para /login). */
+const ROTAS_PUBLICAS = ["/login", "/esqueci-senha"];
+
 /**
  * Renova a sessão do Supabase a cada requisição e exige login: sem sessão,
- * qualquer rota protegida redireciona para /login. Rotas públicas: /login e
- * /api/* (as rotas de API fazem a própria autorização e respondem em JSON,
- * então não devem ser redirecionadas).
+ * qualquer rota protegida redireciona para /login.
+ *
+ * Públicas: /login, /esqueci-senha, /auth/* e /api/*.
+ *   - /auth/confirm recebe o link de recuperação e é quem CRIA a sessão —
+ *     se exigisse sessão, o link nunca funcionaria;
+ *   - /api/* faz a própria autorização e responde JSON, então não pode ser
+ *     redirecionada.
+ * /nova-senha fica PROTEGIDA de propósito: só se chega nela depois que o
+ * /auth/confirm validou o token e abriu a sessão.
  */
 export async function atualizarSessao(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -39,7 +48,10 @@ export async function atualizarSessao(request: NextRequest) {
 
   // Exige login: sem sessão, redireciona rotas protegidas para /login.
   const path = request.nextUrl.pathname;
-  const ehPublico = path === "/login" || path.startsWith("/api");
+  const ehPublico =
+    ROTAS_PUBLICAS.includes(path) ||
+    path.startsWith("/auth/") ||
+    path.startsWith("/api");
   if (!user && !ehPublico) {
     const destino = request.nextUrl.clone();
     destino.pathname = "/login";

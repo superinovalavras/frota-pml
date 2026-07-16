@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, LogIn } from "lucide-react";
 import { useBranding } from "@/lib/store/branding-context";
+import { RECUPERACAO_SENHA_EMAIL_ATIVA } from "@/lib/flags";
 import { entrar, type EstadoLogin } from "./actions";
 
 export default function LoginPage() {
@@ -86,7 +88,17 @@ export default function LoginPage() {
               </p>
             </div>
             <div className="space-y-1.5 text-left">
-              <Label htmlFor="senha">Senha</Label>
+              <div className="flex items-baseline justify-between gap-2">
+                <Label htmlFor="senha">Senha</Label>
+                {RECUPERACAO_SENHA_EMAIL_ATIVA && (
+                  <Link
+                    href="/esqueci-senha"
+                    className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  >
+                    Esqueci minha senha
+                  </Link>
+                )}
+              </div>
               <Input
                 id="senha"
                 name="senha"

@@ -1,5 +1,6 @@
 "use server";
 
+import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { criarSupabaseAdmin, criarSupabaseServer } from "@/lib/supabase/server";
 import { usuarioToRow } from "@/lib/data/mappers";
@@ -113,6 +114,60 @@ export async function salvarUsuarioAdmin(
   }
 
   return { ok: true, senhaInicial };
+}
+
+/** Sem caracteres ambíguos (0/O, 1/l/I): a senha vai ser ditada e anotada. */
+const ALFABETO_SENHA = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+function gerarSenhaTemporaria(): string {
+  let s = "";
+  for (let i = 0; i < 10; i++) s += ALFABETO_SENHA[randomInt(ALFABETO_SENHA.length)];
+  return `Frota-${s}`;
+}
+
+export type ResultadoReset =
+  | { ok: true; senhaTemporaria: string }
+  | { ok: false; erro: string };
+
+/**
+ * Reseta a senha de alguém pelo Master, gerando uma senha temporária ALEATÓRIA
+ * (nunca a SENHA_PADRAO fixa — ela é conhecida e serviria para qualquer conta).
+ *
+ * É o plano B do "Esqueci minha senha": atende quem não consegue abrir a
+ * própria caixa de e-mail. O Master entrega a senha à pessoa, que troca no
+ * Perfil depois de entrar.
+ */
+export async function resetarSenhaUsuario(
+  usuarioId: string,
+): Promise<ResultadoReset> {
+  const aut = await exigirMaster();
+  if (!aut.ok) return aut;
+  const { admin } = aut;
+
+  const { data: alvo } = await admin
+    .from("profiles")
+    .select("auth_user_id, email")
+    .eq("id", usuarioId)
+    .maybeSingle();
+
+  if (!alvo?.auth_user_id) {
+    return {
+      ok: false,
+      erro: alvo?.email
+        ? "Este usuário ainda não tem conta de login. Abra o cadastro e salve para criá-la."
+        : "Este usuário não tem e-mail cadastrado, então não possui login.",
+    };
+  }
+
+  const senhaTemporaria = gerarSenhaTemporaria();
+  const { error } = await admin.auth.admin.updateUserById(alvo.auth_user_id, {
+    password: senhaTemporaria,
+  });
+  if (error) {
+    return { ok: false, erro: `Falha ao redefinir a senha: ${error.message}` };
+  }
+
+  return { ok: true, senhaTemporaria };
 }
 
 /**

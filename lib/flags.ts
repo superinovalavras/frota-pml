@@ -23,3 +23,24 @@ export const REGISTRO_PAINEL_ATIVO = false;
  * O pipeline inteiro (outbox, dispatcher, templates) permanece intacto.
  */
 export const NOTIFICACOES_EMAIL_ATIVAS = false;
+
+/**
+ * Autoatendimento de senha ("Esqueci minha senha" → link no e-mail).
+ *
+ * Desligado até o SMTP estar configurado no Supabase (Auth → SMTP Settings).
+ * O motivo de existir a chave: `resetPasswordForEmail` responde SUCESSO mesmo
+ * quando não consegue entregar (é proteção anti-enumeração do Supabase). Sem
+ * SMTP, a pessoa veria "Link enviado!" e não receberia nada — pior que não ter
+ * o botão. Com `false`:
+ *   - o link some da tela de login;
+ *   - /esqueci-senha explica que o caminho é pedir a um Master.
+ * O reset pelo Master (painel Admin) NÃO depende desta chave e funciona sempre.
+ *
+ * Para ligar, além de virar `true`:
+ *   1. Supabase → Auth → SMTP Settings: host/porta/usuário/senha do remetente;
+ *   2. Supabase → Auth → URL Configuration: Site URL = https://frota-pml.vercel.app
+ *      e a mesma URL + /auth/confirm nas Redirect URLs;
+ *   3. Supabase → Auth → Email Templates → Reset Password, com o link apontando
+ *      para a nossa rota (ver app/auth/confirm/route.ts).
+ */
+export const RECUPERACAO_SENHA_EMAIL_ATIVA = false;

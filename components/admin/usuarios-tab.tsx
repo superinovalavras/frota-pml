@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Search, Car, Shield, IdCard } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Car,
+  Shield,
+  IdCard,
+  KeyRound,
+} from "lucide-react";
 import { temCnhValida } from "@/lib/agendamento-utils";
 import { useConfirmacao } from "@/components/confirmacao-provider";
 import { Button } from "@/components/ui/button";
@@ -15,7 +24,10 @@ import { useFuncoes } from "@/lib/store/funcoes-context";
 import { useOrgaos } from "@/lib/store/orgaos-context";
 import { usePerfil } from "@/lib/perfil-context";
 import { UsuarioForm } from "./usuario-form";
-import { definirMaster } from "@/app/(dashboard)/admin/actions";
+import {
+  definirMaster,
+  resetarSenhaUsuario,
+} from "@/app/(dashboard)/admin/actions";
 import { USUARIO_MASTER_ID } from "@/lib/mock/usuarios";
 import type { Usuario } from "@/lib/mock/types";
 
@@ -31,6 +43,7 @@ export function UsuariosTab() {
   const [alterandoMasterId, setAlterandoMasterId] = useState<string | null>(
     null,
   );
+  const [resetandoId, setResetandoId] = useState<string | null>(null);
 
   const filtrados = useMemo(() => {
     const ordenados = usuarios.slice().sort((a, b) => {
@@ -100,6 +113,37 @@ export function UsuariosTab() {
       });
     } finally {
       setAlterandoMasterId(null);
+    }
+  }
+
+  /** Plano B do "Esqueci minha senha", para quem não abre o próprio e-mail. */
+  async function resetarSenha(u: Usuario) {
+    const ok = await confirmar({
+      titulo: `Resetar a senha de "${u.nome}"?`,
+      mensagem:
+        "A senha atual para de funcionar na hora. Vamos gerar uma senha temporária para você entregar à pessoa — ela troca por uma senha própria no Perfil depois de entrar.",
+      rotuloOk: "Resetar senha",
+    });
+    if (!ok) return;
+
+    setResetandoId(u.id);
+    try {
+      const r = await resetarSenhaUsuario(u.id);
+      if (!r.ok) {
+        await avisar({ titulo: "Não foi possível", mensagem: r.erro });
+        return;
+      }
+      await avisar({
+        titulo: "Senha temporária gerada",
+        mensagem: `Entregue esta senha a ${u.nome.split(" ")[0]}:\n\n${r.senhaTemporaria}\n\nAnote agora — ela não será exibida de novo. Oriente a pessoa a trocá-la no Perfil.`,
+      });
+    } catch {
+      await avisar({
+        titulo: "Falha",
+        mensagem: "Não foi possível resetar a senha. Tente novamente.",
+      });
+    } finally {
+      setResetandoId(null);
     }
   }
 
@@ -225,6 +269,20 @@ export function UsuariosTab() {
                         aria-label={`Acesso Master de ${u.nome}`}
                       />
                     </label>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => resetarSenha(u)}
+                      disabled={resetandoId === u.id || !u.email}
+                      aria-label={`Resetar senha de ${u.nome}`}
+                      title={
+                        u.email
+                          ? "Resetar senha (gera uma temporária)"
+                          : "Sem e-mail cadastrado — não tem login"
+                      }
+                    >
+                      <KeyRound className="size-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
