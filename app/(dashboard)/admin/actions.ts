@@ -1,6 +1,5 @@
 "use server";
 
-import { randomInt } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { criarSupabaseAdmin, criarSupabaseServer } from "@/lib/supabase/server";
 import { usuarioToRow } from "@/lib/data/mappers";
@@ -8,23 +7,15 @@ import type { Database, PerfilDb } from "@/lib/supabase/types";
 import type { Usuario } from "@/lib/mock/types";
 
 /**
- * Senha de 6 dígitos, sorteada na hora. Curta de propósito — o Master lê na
- * tela e dita por telefone/WhatsApp.
+ * Senha inicial de contas novas e do reset pelo Master. Simples e fixa por
+ * decisão da operação: o Master dita por telefone/WhatsApp e avisa a pessoa
+ * para trocá-la no Perfil.
  *
- * Por que sorteada e não uma constante aqui: este repositório é PÚBLICO. Uma
- * senha fixa no código seria a senha de TODA conta nova, publicada na
- * internet; e como o login aceita o "usuário" (a parte antes do @, deduzível
- * do nome da pessoa), bastaria isso para entrar na conta de quem ainda não
- * trocou a senha — e não há troca obrigatória no primeiro acesso.
- *
- * Serve tanto para conta nova quanto para reset pelo Master: é credencial de
- * passagem, para a pessoa entrar e definir a dela no Perfil.
+ * Restrição que o código não mostra: enquanto o repositório for PÚBLICO, esta
+ * senha é pública — e o login aceita o "usuário" (parte antes do @, deduzível
+ * do nome). Fechar o repositório é o que a tira do alcance de qualquer um.
  */
-function gerarSenhaNumerica(): string {
-  let s = "";
-  for (let i = 0; i < 6; i++) s += randomInt(10);
-  return s;
-}
+const SENHA_PADRAO = "123456";
 
 export type ResultadoUsuario =
   | { ok: true; senhaInicial?: string }
@@ -97,10 +88,9 @@ export async function salvarUsuarioAdmin(
       if (achado) {
         authUserId = achado;
       } else {
-        const senha = gerarSenhaNumerica();
         const { data, error } = await admin.auth.admin.createUser({
           email,
-          password: senha,
+          password: SENHA_PADRAO,
           email_confirm: true,
           user_metadata: { nome: usuario.nome },
         });
@@ -108,7 +98,7 @@ export async function salvarUsuarioAdmin(
           return { ok: false, erro: `Falha ao criar o login: ${error.message}` };
         }
         authUserId = data.user.id;
-        senhaInicial = senha;
+        senhaInicial = SENHA_PADRAO;
       }
     } else if ((existente?.email ?? "").toLowerCase() !== email) {
       const { error } = await admin.auth.admin.updateUserById(authUserId, {
@@ -138,11 +128,11 @@ export type ResultadoReset =
   | { ok: false; erro: string };
 
 /**
- * Reseta a senha de alguém pelo Master, gerando uma temporária de 6 dígitos.
+ * Reseta a senha de alguém pelo Master, devolvendo-a à SENHA_PADRAO.
  *
  * É o plano B do "Esqueci minha senha": atende quem não consegue abrir a
- * própria caixa de e-mail. O Master entrega a senha à pessoa, que troca no
- * Perfil depois de entrar.
+ * própria caixa de e-mail. O Master avisa a pessoa, que troca no Perfil
+ * depois de entrar.
  */
 export async function resetarSenhaUsuario(
   usuarioId: string,
@@ -166,7 +156,7 @@ export async function resetarSenhaUsuario(
     };
   }
 
-  const senhaTemporaria = gerarSenhaNumerica();
+  const senhaTemporaria = SENHA_PADRAO;
   const { error } = await admin.auth.admin.updateUserById(alvo.auth_user_id, {
     password: senhaTemporaria,
   });
