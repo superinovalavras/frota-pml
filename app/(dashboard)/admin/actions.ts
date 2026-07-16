@@ -7,8 +7,24 @@ import { usuarioToRow } from "@/lib/data/mappers";
 import type { Database, PerfilDb } from "@/lib/supabase/types";
 import type { Usuario } from "@/lib/mock/types";
 
-/** Senha inicial de contas criadas pelo Master (a pessoa troca depois). */
-const SENHA_PADRAO = "Frota@Lavras2026";
+/**
+ * Senha de 6 dígitos, sorteada na hora. Curta de propósito — o Master lê na
+ * tela e dita por telefone/WhatsApp.
+ *
+ * Por que sorteada e não uma constante aqui: este repositório é PÚBLICO. Uma
+ * senha fixa no código seria a senha de TODA conta nova, publicada na
+ * internet; e como o login aceita o "usuário" (a parte antes do @, deduzível
+ * do nome da pessoa), bastaria isso para entrar na conta de quem ainda não
+ * trocou a senha — e não há troca obrigatória no primeiro acesso.
+ *
+ * Serve tanto para conta nova quanto para reset pelo Master: é credencial de
+ * passagem, para a pessoa entrar e definir a dela no Perfil.
+ */
+function gerarSenhaNumerica(): string {
+  let s = "";
+  for (let i = 0; i < 6; i++) s += randomInt(10);
+  return s;
+}
 
 export type ResultadoUsuario =
   | { ok: true; senhaInicial?: string }
@@ -81,9 +97,10 @@ export async function salvarUsuarioAdmin(
       if (achado) {
         authUserId = achado;
       } else {
+        const senha = gerarSenhaNumerica();
         const { data, error } = await admin.auth.admin.createUser({
           email,
-          password: SENHA_PADRAO,
+          password: senha,
           email_confirm: true,
           user_metadata: { nome: usuario.nome },
         });
@@ -91,7 +108,7 @@ export async function salvarUsuarioAdmin(
           return { ok: false, erro: `Falha ao criar o login: ${error.message}` };
         }
         authUserId = data.user.id;
-        senhaInicial = SENHA_PADRAO;
+        senhaInicial = senha;
       }
     } else if ((existente?.email ?? "").toLowerCase() !== email) {
       const { error } = await admin.auth.admin.updateUserById(authUserId, {
@@ -116,22 +133,12 @@ export async function salvarUsuarioAdmin(
   return { ok: true, senhaInicial };
 }
 
-/** Sem caracteres ambíguos (0/O, 1/l/I): a senha vai ser ditada e anotada. */
-const ALFABETO_SENHA = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-
-function gerarSenhaTemporaria(): string {
-  let s = "";
-  for (let i = 0; i < 10; i++) s += ALFABETO_SENHA[randomInt(ALFABETO_SENHA.length)];
-  return `Frota-${s}`;
-}
-
 export type ResultadoReset =
   | { ok: true; senhaTemporaria: string }
   | { ok: false; erro: string };
 
 /**
- * Reseta a senha de alguém pelo Master, gerando uma senha temporária ALEATÓRIA
- * (nunca a SENHA_PADRAO fixa — ela é conhecida e serviria para qualquer conta).
+ * Reseta a senha de alguém pelo Master, gerando uma temporária de 6 dígitos.
  *
  * É o plano B do "Esqueci minha senha": atende quem não consegue abrir a
  * própria caixa de e-mail. O Master entrega a senha à pessoa, que troca no
@@ -159,7 +166,7 @@ export async function resetarSenhaUsuario(
     };
   }
 
-  const senhaTemporaria = gerarSenhaTemporaria();
+  const senhaTemporaria = gerarSenhaNumerica();
   const { error } = await admin.auth.admin.updateUserById(alvo.auth_user_id, {
     password: senhaTemporaria,
   });
