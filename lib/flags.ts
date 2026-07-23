@@ -43,4 +43,4 @@ export const NOTIFICACOES_EMAIL_ATIVAS = false;
  *   3. Supabase → Auth → Email Templates → Reset Password, com o link apontando
  *      para a nossa rota (ver app/auth/confirm/route.ts).
  */
-export const RECUPERACAO_SENHA_EMAIL_ATIVA = false;
+export const RECUPERACAO_SENHA_EMAIL_ATIVA = true;
