@@ -44,13 +44,29 @@ Painel → Authentication → SMTP Settings:
 | Campo | Valor |
 | --- | --- |
 | Host | `smtp.gmail.com` |
-| Port | `465` |
+| Port | **`587`** |
 | Username | o e-mail dedicado completo |
-| Password | a senha de app (16 caracteres) |
+| Password | a senha de app (16 caracteres, **sem os espaços**) |
 | Sender email | o mesmo e-mail |
 | Sender name | `FROTA PML` |
 
+**Porta 587, não 465.** A 465 (TLS implícito) faz o Supabase travar esperando um
+handshake que não vem: o envio falha com `504 upstream request timeout` depois
+de ~36 s. A 587 (STARTTLS) funciona — foi assim que ficou configurado.
+
+A senha de app é exibida em 4 grupos (`abcd efgh ijkl mnop`) só para facilitar
+a leitura. Os espaços **não** fazem parte dela; colada com eles, a autenticação
+falha com `500 Error sending recovery email` em ~2 s.
+
+Como distinguir os dois erros: **timeout longo** = porta; **falha rápida** =
+credencial.
+
 Limite do Gmail: ~500 mensagens/dia — muito acima da necessidade (17 usuários).
+
+Na primeira mensagem, a entrega pode demorar (minutos): conta Gmail nova não
+tem reputação e o Google segura enquanto avalia o remetente. Depois normaliza.
+Vale orientar as pessoas a conferirem o spam e marcarem "não é spam" na
+primeira vez.
 
 ## 4. URLs
 
@@ -147,7 +163,10 @@ sem SMTP a pessoa veria "Link enviado!" e não receberia nada.
 
 | Sintoma | Causa provável |
 | --- | --- |
+| Trava ~36 s e falha (`504 timeout`) | Porta 465 — trocar para 587 |
+| Falha em ~2 s (`500 Error sending recovery email`) | Senha de app errada, revogada, ou colada com espaços |
 | "Link enviado" mas nada chega | SMTP não configurado, ou caiu no spam |
+| Primeira mensagem demora muito | Normal em conta nova — reputação sendo construída |
 | Link leva ao login em vez de `/nova-senha` | Redirect URL não cadastrada (passo 4) |
 | "Seu link expirou" na primeira tentativa | Template sem `{{ .TokenHash }}` (passo 5) |
 | Parou de enviar de repente | Senha da conta Google trocada → senha de app revogada |
