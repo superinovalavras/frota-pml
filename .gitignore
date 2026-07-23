@@ -54,3 +54,14 @@ next-env.d.ts
 
 # scratch local (geração de pptx, scripts de diagnóstico do banco)
 /.pptx-build/
+
+# Credenciais NUNCA entram no repositório (ele é público).
+# Códigos de backup, senhas de app, chaves e afins moram FORA daqui —
+# em gerenciador de senhas, ou em Documentos/FROTA-PML - Credenciais.
+*ackup*ode*
+*.key
+*.pem
+*credenciais*
+*credentials*
+*secret*
+*senha*
