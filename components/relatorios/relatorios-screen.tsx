@@ -27,6 +27,8 @@ import { useOrgaos } from "@/lib/store/orgaos-context";
 import { usePerfil } from "@/lib/perfil-context";
 import { filtrarVeiculosVisiveis } from "@/lib/visibilidade";
 import { rotuloStatusAgendamento } from "@/lib/formatters";
+import { ExportarLimpar } from "./exportar-limpar";
+import { MedidorArmazenamento } from "./medidor-armazenamento";
 import type { StatusAgendamento } from "@/lib/mock/types";
 
 const TODOS = "todos";
@@ -179,6 +181,13 @@ export function RelatoriosScreen() {
           seu perfil.
         </p>
       </div>
+
+      {usuario.perfil === "master" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <MedidorArmazenamento />
+          <ExportarLimpar />
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
