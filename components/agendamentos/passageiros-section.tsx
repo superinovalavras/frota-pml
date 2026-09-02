@@ -1,19 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X, User, UserPlus, Mail } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, X, User, UserPlus, Mail, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useUsuarios } from "@/lib/store/usuarios-context";
 import { useOrgaos } from "@/lib/store/orgaos-context";
 import type { Passageiro } from "@/lib/mock/types";
@@ -25,7 +18,13 @@ interface Props {
   excluirIds: string[];
 }
 
-const PLACEHOLDER = "_placeholder";
+/** Normaliza para busca: sem acentos, minúsculo. */
+function normalizar(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
 
 export function PassageirosSection({
   passageiros,
@@ -38,6 +37,7 @@ export function PassageirosSection({
   const [convidadoAberto, setConvidadoAberto] = useState(false);
   const [convidadoNome, setConvidadoNome] = useState("");
   const [convidadoMotivo, setConvidadoMotivo] = useState("");
+  const [filtro, setFiltro] = useState("");
 
   const idsAdicionados = new Set(
     passageiros
@@ -48,8 +48,25 @@ export function PassageirosSection({
     .filter((u) => !idsAdicionados.has(u.id) && !excluirIds.includes(u.id))
     .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
+  // Resultados da busca (nome, cargo ou sigla do órgão), sem acento. Limita a
+  // 50 para não renderizar listas enormes.
+  const filtrados = useMemo(() => {
+    const termo = normalizar(filtro.trim());
+    if (!termo) return [];
+    return disponiveis
+      .filter((u) => {
+        const orgao = buscarOrgao(u.secretariaId);
+        const alvo = normalizar(
+          `${u.nome} ${u.cargo ?? ""} ${orgao?.sigla ?? ""}`,
+        );
+        return alvo.includes(termo);
+      })
+      .slice(0, 50);
+    // buscarOrgao é estável; depende de filtro/disponíveis.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtro, disponiveis]);
+
   function adicionarUsuario(id: string) {
-    if (id === PLACEHOLDER) return;
     setPassageiros([...passageiros, { tipo: "usuario", usuarioId: id }]);
   }
 
@@ -182,58 +199,69 @@ export function PassageirosSection({
         </ul>
       )}
 
-      <div className="flex flex-wrap gap-2 items-end">
-        <div className="flex-1 min-w-[200px]">
-          <Label className="text-xs text-muted-foreground">
-            Adicionar do sistema
-          </Label>
-          <Select
-            value={PLACEHOLDER}
-            onValueChange={adicionarUsuario}
-            disabled={disponiveis.length === 0}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex-1 min-w-[200px]">
+            <Label className="text-xs text-muted-foreground">
+              Adicionar do sistema
+            </Label>
+            <div className="relative">
+              <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                disabled={disponiveis.length === 0}
                 placeholder={
                   disponiveis.length === 0
                     ? "Todos já adicionados"
-                    : "Buscar pessoa..."
+                    : "Digite um nome para buscar…"
                 }
+                className="pl-8"
               />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={PLACEHOLDER} disabled>
-                Selecionar para adicionar
-              </SelectItem>
-              {disponiveis.map((u) => {
-                const orgao = buscarOrgao(u.secretariaId);
-                return (
-                  <SelectItem key={u.id} value={u.id}>
-                    <span className="flex items-center gap-2">
-                      <User className="size-3.5 text-muted-foreground" />
-                      <span className="flex flex-col items-start">
-                        <span className="text-sm">{u.nome}</span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {u.cargo || "—"}
-                          {orgao ? ` · ${orgao.sigla}` : ""}
-                        </span>
-                      </span>
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setConvidadoAberto((v) => !v)}
+          >
+            <Plus className="size-4" />
+            Convidado externo
+          </Button>
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setConvidadoAberto((v) => !v)}
-        >
-          <Plus className="size-4" />
-          Convidado externo
-        </Button>
+        {filtro.trim() !== "" && (
+          <div className="rounded-md border bg-background max-h-56 overflow-y-auto divide-y">
+            {filtrados.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-muted-foreground">
+                Ninguém encontrado para “{filtro.trim()}”.
+              </p>
+            ) : (
+              filtrados.map((u) => {
+                const orgao = buscarOrgao(u.secretariaId);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => adicionarUsuario(u.id)}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-muted/60 transition-colors"
+                  >
+                    <User className="size-3.5 text-muted-foreground shrink-0" />
+                    <span className="flex flex-col items-start min-w-0 flex-1">
+                      <span className="text-sm truncate">{u.nome}</span>
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        {u.cargo || "—"}
+                        {orgao ? ` · ${orgao.sigla}` : ""}
+                      </span>
+                    </span>
+                    <Plus className="size-4 text-primary shrink-0" />
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
 
       {convidadoAberto && (

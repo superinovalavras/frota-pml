@@ -1,6 +1,6 @@
 "use client";
 
-import { Car } from "lucide-react";
+import { Car, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -75,9 +75,12 @@ export function VeiculoCard({ veiculo, onClick }: Props) {
 
         <div className="min-h-[2.5rem]">
           {veiculo.observacoes ? (
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {veiculo.observacoes}
-            </p>
+            <div className="flex items-start gap-1.5 rounded-md border border-amber-300/70 bg-amber-50 px-2 py-1.5 dark:border-amber-500/40 dark:bg-amber-500/10">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <p className="text-sm font-medium leading-snug text-amber-900 line-clamp-3 dark:text-amber-200">
+                {veiculo.observacoes}
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground/50 italic">
               Sem observações

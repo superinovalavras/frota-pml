@@ -81,7 +81,8 @@ export function AgendamentoForm({
   const [solicitanteId, setSolicitanteId] = useState<string>(usuarioAtual.id);
   const [veiculoId, setVeiculoId] = useState<string>("");
   const [diaTodo, setDiaTodo] = useState<boolean>(false);
-  const [data, setData] = useState<string>(""); // só usado em diaTodo
+  const [data, setData] = useState<string>(""); // início (diaTodo)
+  const [dataFim, setDataFim] = useState<string>(""); // fim do intervalo (diaTodo)
   const [inicio, setInicio] = useState<string>("");
   const [fim, setFim] = useState<string>("");
   const [localPartida, setLocalPartida] = useState<string>("");
@@ -102,6 +103,7 @@ export function AgendamentoForm({
       setVeiculoId(agendamento.veiculoId);
       setDiaTodo(!!agendamento.diaTodo);
       setData(dataIsoDeIso(agendamento.inicio));
+      setDataFim(dataIsoDeIso(agendamento.fim));
       setInicio(isoParaInputLocal(agendamento.inicio));
       setFim(isoParaInputLocal(agendamento.fim));
       setLocalPartida(agendamento.localPartida ?? "");
@@ -130,6 +132,7 @@ export function AgendamentoForm({
       setVeiculoId(inicialVeiculoId ?? "");
       setDiaTodo(false);
       setData(inicialInicio ? dataIsoDeIso(inicialInicio) : "");
+      setDataFim(inicialInicio ? dataIsoDeIso(inicialInicio) : "");
       setInicio(inicialInicio ?? "");
       setFim(inicialFim ?? "");
       setLocalPartida("");
@@ -174,13 +177,19 @@ export function AgendamentoForm({
   // Calcula intervalo final em função de diaTodo
   const intervalo = useMemo(() => {
     if (diaTodo && data) {
-      return intervaloDiaTodo(data);
+      // Intervalo de dias: do 00:00 da data inicial ao 23:59 da data final.
+      // Sem data final (ou anterior à inicial), vira um único dia.
+      const dFim = dataFim && dataFim >= data ? dataFim : data;
+      return {
+        inicio: intervaloDiaTodo(data).inicio,
+        fim: intervaloDiaTodo(dFim).fim,
+      };
     }
     return {
       inicio: inputLocalParaIso(inicio),
       fim: inputLocalParaIso(fim),
     };
-  }, [diaTodo, data, inicio, fim]);
+  }, [diaTodo, data, dataFim, inicio, fim]);
 
   const conflito = useMemo(() => {
     if (!veiculoId || !intervalo.inicio || !intervalo.fim) return null;
@@ -264,7 +273,13 @@ export function AgendamentoForm({
     | { ok: false; erro: string } {
     if (!veiculoId) return { ok: false, erro: "Selecione um veículo." };
     if (diaTodo) {
-      if (!data) return { ok: false, erro: "Informe a data." };
+      if (!data) return { ok: false, erro: "Informe a data inicial." };
+      if (dataFim && dataFim < data) {
+        return {
+          ok: false,
+          erro: "A data final não pode ser anterior à inicial.",
+        };
+      }
     } else {
       if (!inicio || !fim) {
         return { ok: false, erro: "Informe o horário de saída e devolução." };
@@ -582,7 +597,7 @@ export function AgendamentoForm({
                 Dia todo
               </Label>
               <p className="text-xs text-muted-foreground">
-                A reserva ocupará o dia inteiro (00:00 às 23:59).
+                Ocupa o(s) dia(s) inteiro(s). Escolha uma data ou um intervalo.
               </p>
             </div>
             <Switch
@@ -590,9 +605,11 @@ export function AgendamentoForm({
               checked={diaTodo}
               onCheckedChange={(v) => {
                 setDiaTodo(v);
-                if (v && !data) {
-                  // ao ligar dia todo, herda data do início se houver
-                  if (inicio) setData(dataIsoDeIso(inputLocalParaIso(inicio)));
+                if (v && !data && inicio) {
+                  // ao ligar dia todo, herda a data do horário de início
+                  const d = dataIsoDeIso(inputLocalParaIso(inicio));
+                  setData(d);
+                  if (!dataFim) setDataFim(d);
                 }
               }}
             />
@@ -600,15 +617,40 @@ export function AgendamentoForm({
 
           {/* Datas/horas */}
           {diaTodo ? (
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="af-data">Data</Label>
-              <Input
-                id="af-data"
-                type="date"
-                value={data}
-                onChange={(e) => setData(e.target.value)}
-              />
-            </div>
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="af-data">Data inicial</Label>
+                <Input
+                  id="af-data"
+                  type="date"
+                  value={data}
+                  max={dataFim || undefined}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setData(v);
+                    // mantém o fim coerente: se estiver vazio ou antes do início
+                    if (!dataFim || (v && dataFim < v)) setDataFim(v);
+                    setErro(null);
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="af-data-fim">Data final</Label>
+                <Input
+                  id="af-data-fim"
+                  type="date"
+                  value={dataFim}
+                  min={data || undefined}
+                  onChange={(e) => {
+                    setDataFim(e.target.value);
+                    setErro(null);
+                  }}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Igual à inicial = um dia só. Depois = reserva de vários dias.
+                </p>
+              </div>
+            </>
           ) : (
             <>
               <div className="space-y-2">
@@ -936,6 +978,14 @@ function VeiculoOption({ veiculo: v }: { veiculo: Veiculo }) {
           {v.placa} · CNH {v.cnhExigida}
           {v.lugares ? ` · ${v.lugares} lugares` : ""}
         </span>
+        {v.observacoes?.trim() && (
+          <span className="mt-1 flex items-start gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium leading-snug text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+            <AlertTriangle className="size-3 shrink-0 mt-px" />
+            <span className="whitespace-normal line-clamp-2">
+              {v.observacoes}
+            </span>
+          </span>
+        )}
       </span>
     </span>
   );

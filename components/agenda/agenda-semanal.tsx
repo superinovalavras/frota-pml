@@ -75,6 +75,18 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
+/** A reserva ocupa o dia `dia`? (interseção do intervalo [início,fim] com o dia)
+ *  Assim reservas de vários dias aparecem em TODAS as colunas que atravessam. */
+function ocupaDia(a: Agendamento, dia: Date): boolean {
+  const ds = new Date(dia);
+  ds.setHours(0, 0, 0, 0);
+  const dsMs = ds.getTime();
+  const deMs = dsMs + 86_400_000;
+  const iniMs = new Date(a.inicio).getTime();
+  const fimMs = new Date(a.fim).getTime();
+  return iniMs < deMs && fimMs > dsMs;
+}
+
 function pad(n: number): string {
   return n.toString().padStart(2, "0");
 }
@@ -165,8 +177,11 @@ export function AgendaSemanal() {
     fim.setDate(fim.getDate() + 7);
     const fimMs = fim.getTime();
     return agendamentosFiltrados.filter((a) => {
-      const t = new Date(a.inicio).getTime();
-      return t >= ini && t < fimMs;
+      // Interseção com a semana: pega também reservas que começaram antes e
+      // continuam dentro da semana visível (reservas de vários dias).
+      const iniA = new Date(a.inicio).getTime();
+      const fimA = new Date(a.fim).getTime();
+      return iniA < fimMs && fimA > ini;
     });
   }, [agendamentosFiltrados, inicioSemana]);
 
@@ -331,7 +346,7 @@ export function AgendaSemanal() {
             {dias.map((dia, i) => {
               const ehHoje = isSameDay(dia, hoje);
               const qtd = agendamentosNaSemana.filter((a) =>
-                isSameDay(new Date(a.inicio), dia),
+                ocupaDia(a, dia),
               ).length;
               return (
                 <div
@@ -380,7 +395,7 @@ export function AgendaSemanal() {
 
             {dias.map((dia, i) => {
               const agsDoDia = agendamentosNaSemana.filter((a) =>
-                isSameDay(new Date(a.inicio), dia),
+                ocupaDia(a, dia),
               );
               const ehHoje = isSameDay(dia, hoje);
               return (
@@ -446,14 +461,46 @@ function DiaColuna({
   onClickVazio: (dia: Date, e: React.MouseEvent) => void;
   buscarUsuario: (id: string) => Usuario | undefined;
 }) {
-  const agsDiaTodo = agendamentos.filter((a) => a.diaTodo);
-  const agsTimed = agendamentos.filter((a) => !a.diaTodo);
-  const temTimed = agsTimed.length > 0;
-  const nAll = agsDiaTodo.length;
-  // Faixas lado a lado: uma por reserva de dia todo + (se houver) uma para as
-  // reservas com horário. Assim nada se sobrepõe.
-  const totalFaixas = nAll + (temTimed ? 1 : 0);
+  // Segmento de cada reserva NESTE dia (recorta o intervalo à coluna do dia):
+  //  - "cheia": ocupa a coluna inteira (dia todo, ou um dia do meio de uma
+  //    reserva de vários dias) → vira uma faixa vertical cheia;
+  //  - "parcial": só um pedaço do dia (dia de início/fim de uma multi-dia,
+  //    ou uma reserva normal com horário) → bloco posicionado.
+  const dayStart = new Date(dia);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayStartMs = dayStart.getTime();
+  const dayEndMs = dayStartMs + 86_400_000;
+  const grid6amMs = dayStartMs + HORA_INICIO * 3_600_000;
+  const gridTotalMin = (HORA_FIM - HORA_INICIO + 1) * 60;
+  const clampMin = (v: number) => Math.max(0, Math.min(gridTotalMin, v));
+
+  const segmentos = agendamentos.map((a) => {
+    const iniMs = new Date(a.inicio).getTime();
+    const fimMs = new Date(a.fim).getTime();
+    const cheia = !!a.diaTodo || (iniMs <= dayStartMs && fimMs >= dayEndMs);
+    const continuaAntes = iniMs < dayStartMs;
+    const continuaDepois = fimMs > dayEndMs;
+    const segIniMin = clampMin((Math.max(iniMs, grid6amMs) - grid6amMs) / 60_000);
+    const segFimMin = clampMin((Math.min(fimMs, dayEndMs) - grid6amMs) / 60_000);
+    return { a, cheia, continuaAntes, continuaDepois, segIniMin, segFimMin };
+  });
+
+  const cheias = segmentos.filter((s) => s.cheia);
+  const parciais = segmentos.filter((s) => !s.cheia);
+  const temParciais = parciais.length > 0;
+  const nAll = cheias.length;
+  // Faixas lado a lado: uma por reserva "cheia" + (se houver) uma para as
+  // parciais. Assim nada se sobrepõe.
+  const totalFaixas = nAll + (temParciais ? 1 : 0);
   const larguraFaixa = totalFaixas > 0 ? 100 / totalFaixas : 100;
+
+  // Rótulo de horário considerando continuação em outros dias.
+  const rotuloSeg = (s: (typeof segmentos)[number]): string => {
+    if (s.cheia) return s.a.diaTodo ? "Dia todo" : "Vários dias";
+    if (s.continuaDepois) return `${formatHora(s.a.inicio)} →`;
+    if (s.continuaAntes) return `→ ${formatHora(s.a.fim)}`;
+    return `${formatHora(s.a.inicio)}–${formatHora(s.a.fim)}`;
+  };
 
   return (
     <div
@@ -485,14 +532,17 @@ function DiaColuna({
         </div>
       )}
 
-      {/* Reservas de DIA TODO — ocupam a coluna inteira (altura total). */}
-      {agsDiaTodo.map((a, idx) => (
+      {/* Reservas que ocupam a coluna inteira (dia todo / dia do meio de uma
+          reserva de vários dias). */}
+      {cheias.map((s, idx) => (
         <EventoCard
-          key={a.id}
-          agendamento={a}
+          key={s.a.id}
+          agendamento={s.a}
           veiculos={veiculos}
           buscarUsuario={buscarUsuario}
           altura={ALTURA_GRADE}
+          rotuloHora={rotuloSeg(s)}
+          estiloDiaTodo
           posStyle={{
             left: `calc(${idx * larguraFaixa}% + 2px)`,
             width: `calc(${larguraFaixa}% - 4px)`,
@@ -501,35 +551,35 @@ function DiaColuna({
           }}
           onClick={(e) => {
             e.stopPropagation();
-            onSelect(a);
+            onSelect(s.a);
           }}
         />
       ))}
 
-      {/* Reservas com HORÁRIO — na faixa restante à direita das de dia todo. */}
+      {/* Reservas parciais (com horário) — na faixa restante à direita. */}
       <div
         className="absolute inset-y-0"
         style={{ left: `${nAll * larguraFaixa}%`, right: 0 }}
       >
-        {agsTimed.map((a) => {
-          const ini = new Date(a.inicio);
-          const f = new Date(a.fim);
-          const mIni = (ini.getHours() - HORA_INICIO) * 60 + ini.getMinutes();
-          const mFim = (f.getHours() - HORA_INICIO) * 60 + f.getMinutes();
-          const top = Math.max(0, (mIni / 60) * ALTURA_HORA);
-          const altura = Math.max(24, ((mFim - mIni) / 60) * ALTURA_HORA);
+        {parciais.map((s) => {
+          const top = (s.segIniMin / 60) * ALTURA_HORA;
+          const altura = Math.max(
+            24,
+            ((s.segFimMin - s.segIniMin) / 60) * ALTURA_HORA,
+          );
           return (
             <EventoCard
-              key={a.id}
-              agendamento={a}
+              key={s.a.id}
+              agendamento={s.a}
               veiculos={veiculos}
               buscarUsuario={buscarUsuario}
               altura={altura}
+              rotuloHora={rotuloSeg(s)}
               posClass="left-1 right-1"
               posStyle={{ top, height: altura }}
               onClick={(e) => {
                 e.stopPropagation();
-                onSelect(a);
+                onSelect(s.a);
               }}
             />
           );
@@ -553,6 +603,8 @@ function EventoCard({
   posClass,
   posStyle,
   onClick,
+  rotuloHora,
+  estiloDiaTodo,
 }: {
   agendamento: Agendamento;
   veiculos: Veiculo[];
@@ -564,18 +616,24 @@ function EventoCard({
   /** Estilo de posição (top/height; para dia todo também left/width). */
   posStyle: React.CSSProperties;
   onClick: (e: React.MouseEvent) => void;
+  /** Rótulo de horário já calculado (ex.: "08:00 →" para reserva que segue). */
+  rotuloHora?: string;
+  /** Força o visual de "coluna cheia" (dia todo / dia do meio de multi-dia). */
+  estiloDiaTodo?: boolean;
 }) {
   const veiculo = veiculos.find((v) => v.id === a.veiculoId);
   const motorista = (a.motoristaId ? buscarUsuario(a.motoristaId) : null) ?? null;
   const solicitante = buscarUsuario(a.solicitanteId);
   const foto = veiculo?.fotoUrl;
-  const isDiaTodo = !!a.diaTodo;
+  const isDiaTodo = estiloDiaTodo ?? !!a.diaTodo;
+  // Reserva que atravessa mais de um dia (retirada e devolução em datas diferentes).
+  const multiDia = a.inicio.slice(0, 10) !== a.fim.slice(0, 10);
   const nomeVeic = veiculo
     ? `${veiculo.placa} · ${veiculo.modelo}`
     : "Veículo removido";
-  const tempo = isDiaTodo
-    ? "Dia todo"
-    : `${formatHora(a.inicio)}–${formatHora(a.fim)}`;
+  const tempo =
+    rotuloHora ??
+    (isDiaTodo ? "Dia todo" : `${formatHora(a.inicio)}–${formatHora(a.fim)}`);
   // Com foto + horário: texto embaixo (sobre o degradê). Caso contrário, topo.
   const alinhar = !foto || isDiaTodo ? "justify-start" : "justify-end";
 
@@ -645,10 +703,12 @@ function EventoCard({
               </div>
             )}
 
-            {isDiaTodo && (
+            {(isDiaTodo || multiDia) && (
               <div className="hidden md:flex items-center gap-1 text-[10px] opacity-90 leading-tight truncate">
                 <Clock className="size-3 shrink-0" />
-                Volta {formatHora(a.fim)}
+                {multiDia
+                  ? `Devolve ${a.fim.slice(8, 10)}/${a.fim.slice(5, 7)} ${a.fim.slice(11, 16)}`
+                  : `Volta ${formatHora(a.fim)}`}
               </div>
             )}
 
