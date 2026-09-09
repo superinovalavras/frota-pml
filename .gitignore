@@ -63,5 +63,9 @@ next-env.d.ts
 *.pem
 *credenciais*
 *credentials*
-*secret*
-*senha*
+# "secret" e "senha" só na RAIZ do repositório (um dump de credencial largado
+# aqui). Não ancorar pegaria código legítimo em subpastas — ex.: a migration
+# "secretarias_visiveis" ou as rotas/telas de "senha" seriam ignoradas em
+# silêncio (já aconteceu). Segredos de verdade moram em .env* e /credentials/.
+/*secret*
+/*senha*
