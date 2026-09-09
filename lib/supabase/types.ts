@@ -85,6 +85,8 @@ type VeiculoRow = {
   lugares: number;
   observacoes: string | null;
   foto_url: string | null;
+  /** Outras secretarias (além da dona) que também veem/reservam este veículo. */
+  secretarias_visiveis: string[];
   criado_em: string;
 };
 

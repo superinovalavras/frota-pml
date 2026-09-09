@@ -15,8 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useVeiculos } from "@/lib/store/veiculos-context";
+import { useOrgaos } from "@/lib/store/orgaos-context";
 import { lerArquivoComoDataUrl } from "@/lib/imagem";
 import { usePerfil } from "@/lib/perfil-context";
+import { cn } from "@/lib/utils";
 import { RecortadorFoto } from "@/components/recortador-foto";
 import { ManutencaoForm } from "./manutencao-form";
 import { buscarManutencaoAtiva } from "@/lib/data/manutencoes";
@@ -31,6 +33,7 @@ interface Props {
 export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const aberto = modo !== null;
   const { salvar, remover, veiculos } = useVeiculos();
+  const { orgaos } = useOrgaos();
   const { secretaria, usuario } = usePerfil();
   const inputFotoRef = useRef<HTMLInputElement>(null);
 
@@ -45,9 +48,21 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   // abrir a Manutenção dos veículos da própria secretaria.
   const podeEditar = usuario.perfil === "master";
 
+  // Secretaria dona do veículo (sempre vê). "Também visível para" lista as
+  // outras secretarias que o Master pode marcar para compartilhar.
+  const secretariaDonaId =
+    modo === "editar" && veiculo ? veiculo.secretariaId : secretaria.id;
+  const outrasSecretarias = orgaos.filter((o) => o.id !== secretariaDonaId);
+  function toggleSecretariaVisivel(id: string) {
+    setSecretariasVisiveis((atual) =>
+      atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id],
+    );
+  }
+
   const [nome, setNome] = useState("");
   const [placa, setPlaca] = useState("");
   const [lugares, setLugares] = useState("5");
+  const [secretariasVisiveis, setSecretariasVisiveis] = useState<string[]>([]);
   const [observacoes, setObservacoes] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | undefined>(undefined);
   const [carregandoFoto, setCarregandoFoto] = useState(false);
@@ -69,12 +84,14 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setNome(nomeCompleto || veiculo.modelo);
       setPlaca(veiculo.placa);
       setLugares(String(veiculo.lugares ?? 5));
+      setSecretariasVisiveis(veiculo.secretariasVisiveis ?? []);
       setObservacoes(veiculo.observacoes ?? "");
       setFotoUrl(veiculo.fotoUrl);
     } else {
       setNome("");
       setPlaca("");
       setLugares("5");
+      setSecretariasVisiveis([]);
       setObservacoes("");
       setFotoUrl(undefined);
     }
@@ -168,6 +185,10 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
     base.marca = "";
     base.placa = placaLimpa;
     base.lugares = Math.min(60, Math.max(1, Math.round(Number(lugares) || 5)));
+    // Compartilhamento: nunca inclui a própria dona; só ids de órgãos válidos.
+    base.secretariasVisiveis = secretariasVisiveis.filter(
+      (id) => id !== base.secretariaId && orgaos.some((o) => o.id === id),
+    );
     base.observacoes = observacoes.trim() || undefined;
     base.fotoUrl = fotoUrl;
 
@@ -312,6 +333,43 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               rows={3}
               disabled={!podeEditar}
             />
+          </div>
+
+          {/* Compartilhamento entre secretarias */}
+          <div className="space-y-2">
+            <Label>Também visível para</Label>
+            <p className="text-xs text-muted-foreground">
+              A secretaria dona sempre vê. Marque outras secretarias que também
+              podem ver e reservar este veículo.
+            </p>
+            {outrasSecretarias.length === 0 ? (
+              <p className="text-xs italic text-muted-foreground">
+                Não há outras secretarias cadastradas.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {outrasSecretarias.map((o) => {
+                  const ativo = secretariasVisiveis.includes(o.id);
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      disabled={!podeEditar}
+                      onClick={() => toggleSecretariaVisivel(o.id)}
+                      title={o.nome}
+                      className={cn(
+                        "text-xs rounded-full border px-2.5 py-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
+                        ativo
+                          ? "border-primary bg-primary/10 text-primary font-medium"
+                          : "border-input text-muted-foreground hover:bg-muted",
+                      )}
+                    >
+                      {o.sigla}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {erro && (

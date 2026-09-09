@@ -3,21 +3,29 @@ import type { Usuario, Veiculo } from "@/lib/mock/types";
 /**
  * Regra de visibilidade de veículos:
  * - master: vê tudo
- * - gestor: vê todos os veículos da sua secretaria
- * - servidor / motorista (com superintendência): vê veículos da própria
- *   superintendência + frota geral da secretaria (superintendenciaId == null)
- * - servidor / motorista (sem superintendência): vê apenas frota geral
- *   da secretaria (não vê veículos atribuídos a superintendências)
+ * - secretaria DONA (`secretariaId`):
+ *   - gestor: vê todos os veículos da sua secretaria
+ *   - servidor / motorista (com superintendência): vê veículos da própria
+ *     superintendência + frota geral da secretaria (superintendenciaId == null)
+ *   - servidor / motorista (sem superintendência): vê apenas frota geral
+ * - secretaria COMPARTILHADA (`secretariasVisiveis`): TODA a secretaria alvo
+ *   vê e pode reservar o veículo (sem sub-filtro por superintendência).
  */
 export function veiculoVisivelPara(v: Veiculo, u: Usuario): boolean {
   if (u.perfil === "master") return true;
-  if (v.secretariaId !== u.secretariaId) return false;
-  if (u.perfil === "gestor") return true;
-  // servidor / motorista
-  if (u.superintendenciaId === null) {
-    return v.superintendenciaId === null;
+
+  // Dona: regra por perfil/superintendência.
+  if (v.secretariaId === u.secretariaId) {
+    if (u.perfil === "gestor") return true;
+    if (u.superintendenciaId === null) return v.superintendenciaId === null;
+    return (
+      v.superintendenciaId === null ||
+      v.superintendenciaId === u.superintendenciaId
+    );
   }
-  return v.superintendenciaId === null || v.superintendenciaId === u.superintendenciaId;
+
+  // Compartilhada: qualquer um da secretaria listada enxerga.
+  return v.secretariasVisiveis?.includes(u.secretariaId) ?? false;
 }
 
 export function filtrarVeiculosVisiveis(

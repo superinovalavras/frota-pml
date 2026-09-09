@@ -172,6 +172,9 @@ export function veiculoFromRow(r: Tables["veiculos"]["Row"]): Veiculo {
     status: r.status as StatusVeiculo,
     kmAtual: r.km_atual,
     lugares: r.lugares ?? 5,
+    secretariasVisiveis: Array.isArray(r.secretarias_visiveis)
+      ? r.secretarias_visiveis
+      : [],
     observacoes: r.observacoes ?? undefined,
     fotoUrl: r.foto_url ?? undefined,
   };
@@ -190,6 +193,7 @@ export function veiculoToRow(v: Veiculo): Tables["veiculos"]["Insert"] {
     status: v.status,
     km_atual: v.kmAtual,
     lugares: v.lugares ?? 5,
+    secretarias_visiveis: v.secretariasVisiveis ?? [],
     observacoes: orNull(v.observacoes),
     foto_url: orNull(v.fotoUrl),
   };

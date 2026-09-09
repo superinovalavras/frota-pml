@@ -61,6 +61,8 @@ import {
   Navigation,
   Gauge,
   Camera,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -132,6 +134,13 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
     usuarioAtual.perfil === "gestor" ||
     usuarioAtual.id === agendamento.solicitanteId ||
     usuarioAtual.id === agendamento.motoristaId;
+
+  // O próprio solicitante pode cancelar a reserva enquanto a viagem não começou
+  // (pendente ou confirmada). A rota /api/agendamento/cancelar já autoriza o dono.
+  const cancelavel =
+    agendamento.status === "pendente" || agendamento.status === "confirmado";
+  const podeCancelarPropria =
+    usuarioAtual.id === agendamento.solicitanteId && cancelavel;
 
   // Solicitante e motorista podem mover o próprio fluxo, INCLUSIVE confirmar a
   // própria viagem. A RLS + o trigger guard_agendamento_status garantem a regra
@@ -436,6 +445,18 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
                   Editar
                 </Button>
               )}
+              {podeCancelarPropria && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={aoCancelar}
+                  disabled={processandoCancel}
+                  className="text-destructive border-destructive/40 hover:text-destructive"
+                >
+                  <XCircle className="size-4" />
+                  Cancelar reserva
+                </Button>
+              )}
               {(usuarioAtual.perfil === "master" ||
                 usuarioAtual.perfil === "gestor") && (
                 <Button
@@ -537,8 +558,8 @@ function RegistroCheck({
 
 /**
  * Bloco padrão de pessoa na reserva (solicitante, motorista, passageiro):
- * nome → cargo → celular, de cima para baixo. O celular é um link `tel:`
- * (no celular, toca direto) — substitui as notificações por email.
+ * nome → cargo → celular, de cima para baixo. O celular vem com botão de
+ * copiar (facilita ligar a partir do computador) e o número é selecionável.
  */
 function PessoaInfo({ usuario }: { usuario: Usuario }) {
   return (
@@ -549,15 +570,46 @@ function PessoaInfo({ usuario }: { usuario: Usuario }) {
           {usuario.cargo}
         </span>
       )}
-      {usuario.telefone && (
-        <a
-          href={`tel:${usuario.telefone.replace(/\D/g, "")}`}
-          className="block text-xs text-primary hover:underline"
-        >
-          {formatTelefone(usuario.telefone)}
-        </a>
-      )}
+      {usuario.telefone && <TelefoneCopiavel telefone={usuario.telefone} />}
     </div>
+  );
+}
+
+/** Número de telefone selecionável + botão "copiar" com confirmação visual. */
+function TelefoneCopiavel({ telefone }: { telefone: string }) {
+  const [copiado, setCopiado] = useState(false);
+  const formatado = formatTelefone(telefone);
+
+  async function copiar() {
+    try {
+      await navigator.clipboard.writeText(formatado);
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 1500);
+    } catch {
+      // Sem permissão de clipboard: o `select-all` deixa copiar manualmente.
+    }
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs">
+      <span className="select-all font-medium tabular-nums">{formatado}</span>
+      <button
+        type="button"
+        onClick={copiar}
+        title="Copiar número"
+        aria-label="Copiar número"
+        className="inline-flex items-center gap-0.5 text-muted-foreground hover:text-primary transition-colors"
+      >
+        {copiado ? (
+          <>
+            <Check className="size-3.5 text-emerald-600" />
+            <span className="text-[10px] text-emerald-600">copiado</span>
+          </>
+        ) : (
+          <Copy className="size-3.5" />
+        )}
+      </button>
+    </span>
   );
 }
 

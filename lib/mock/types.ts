@@ -98,6 +98,11 @@ export interface Veiculo {
   kmAtual: number;
   /** Quantidade de lugares (motorista + passageiros). */
   lugares?: number;
+  /**
+   * Outras secretarias (além da dona `secretariaId`) que também podem ver e
+   * reservar este veículo. A secretaria dona sempre enxerga.
+   */
+  secretariasVisiveis?: string[];
   observacoes?: string;
   /** Data URL ou URL externa. Em Fase 1 fica em localStorage. */
   fotoUrl?: string;
