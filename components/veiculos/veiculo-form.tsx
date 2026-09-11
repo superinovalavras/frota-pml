@@ -67,11 +67,6 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const secretariaDonaId =
     modo === "editar" && veiculo ? veiculo.secretariaId : secretaria.id;
   const outrasSecretarias = orgaos.filter((o) => o.id !== secretariaDonaId);
-  const secretariasFiltradas = outrasSecretarias.filter((o) => {
-    const termo = normalizarBusca(filtroOrgao.trim());
-    if (!termo) return true;
-    return normalizarBusca(`${o.nome} ${o.sigla}`).includes(termo);
-  });
   function toggleSecretariaVisivel(id: string) {
     setSecretariasVisiveis((atual) =>
       atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id],
@@ -84,6 +79,14 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const [secretariasVisiveis, setSecretariasVisiveis] = useState<string[]>([]);
   const [filtroOrgao, setFiltroOrgao] = useState("");
   const [observacoes, setObservacoes] = useState("");
+
+  // Filtro da busca de secretarias — DEPOIS do estado `filtroOrgao` (senão dá
+  // "cannot access before initialization" e derruba a tela de veículos).
+  const secretariasFiltradas = outrasSecretarias.filter((o) => {
+    const termo = normalizarBusca(filtroOrgao.trim());
+    if (!termo) return true;
+    return normalizarBusca(`${o.nome} ${o.sigla}`).includes(termo);
+  });
   const [fotoUrl, setFotoUrl] = useState<string | undefined>(undefined);
   const [carregandoFoto, setCarregandoFoto] = useState(false);
   const [imagemParaRecortar, setImagemParaRecortar] = useState<string | null>(
