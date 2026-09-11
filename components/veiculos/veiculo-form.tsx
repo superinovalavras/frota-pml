@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Camera, Loader2, Trash2, Wrench, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  Check,
+  Loader2,
+  Search,
+  Trash2,
+  Wrench,
+  X,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +32,11 @@ import { RecortadorFoto } from "@/components/recortador-foto";
 import { ManutencaoForm } from "./manutencao-form";
 import { buscarManutencaoAtiva } from "@/lib/data/manutencoes";
 import type { Manutencao, Veiculo } from "@/lib/mock/types";
+
+/** Normaliza para busca: sem acentos, minúsculo. */
+function normalizarBusca(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
 
 interface Props {
   veiculo: Veiculo | null;
@@ -53,6 +67,11 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const secretariaDonaId =
     modo === "editar" && veiculo ? veiculo.secretariaId : secretaria.id;
   const outrasSecretarias = orgaos.filter((o) => o.id !== secretariaDonaId);
+  const secretariasFiltradas = outrasSecretarias.filter((o) => {
+    const termo = normalizarBusca(filtroOrgao.trim());
+    if (!termo) return true;
+    return normalizarBusca(`${o.nome} ${o.sigla}`).includes(termo);
+  });
   function toggleSecretariaVisivel(id: string) {
     setSecretariasVisiveis((atual) =>
       atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id],
@@ -63,6 +82,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const [placa, setPlaca] = useState("");
   const [lugares, setLugares] = useState("5");
   const [secretariasVisiveis, setSecretariasVisiveis] = useState<string[]>([]);
+  const [filtroOrgao, setFiltroOrgao] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [fotoUrl, setFotoUrl] = useState<string | undefined>(undefined);
   const [carregandoFoto, setCarregandoFoto] = useState(false);
@@ -85,6 +105,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setPlaca(veiculo.placa);
       setLugares(String(veiculo.lugares ?? 5));
       setSecretariasVisiveis(veiculo.secretariasVisiveis ?? []);
+      setFiltroOrgao("");
       setObservacoes(veiculo.observacoes ?? "");
       setFotoUrl(veiculo.fotoUrl);
     } else {
@@ -92,6 +113,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setPlaca("");
       setLugares("5");
       setSecretariasVisiveis([]);
+      setFiltroOrgao("");
       setObservacoes("");
       setFotoUrl(undefined);
     }
@@ -347,28 +369,74 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
                 Não há outras secretarias cadastradas.
               </p>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {outrasSecretarias.map((o) => {
-                  const ativo = secretariasVisiveis.includes(o.id);
-                  return (
-                    <button
-                      key={o.id}
-                      type="button"
-                      disabled={!podeEditar}
-                      onClick={() => toggleSecretariaVisivel(o.id)}
-                      title={o.nome}
-                      className={cn(
-                        "text-xs rounded-full border px-2.5 py-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
-                        ativo
-                          ? "border-primary bg-primary/10 text-primary font-medium"
-                          : "border-input text-muted-foreground hover:bg-muted",
-                      )}
-                    >
-                      {o.sigla}
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <div className="relative">
+                  <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  <Input
+                    value={filtroOrgao}
+                    onChange={(e) => setFiltroOrgao(e.target.value)}
+                    disabled={!podeEditar}
+                    placeholder="Buscar secretaria pelo nome…"
+                    className="pl-8"
+                  />
+                </div>
+                <div className="max-h-56 overflow-y-auto rounded-md border divide-y">
+                  {secretariasFiltradas.length === 0 ? (
+                    <p className="px-3 py-3 text-sm text-muted-foreground">
+                      Nenhuma secretaria encontrada para “{filtroOrgao.trim()}”.
+                    </p>
+                  ) : (
+                    secretariasFiltradas.map((o) => {
+                      const ativo = secretariasVisiveis.includes(o.id);
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          disabled={!podeEditar}
+                          onClick={() => toggleSecretariaVisivel(o.id)}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                            ativo ? "bg-primary/5" : "hover:bg-muted/60",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "size-4 rounded border flex items-center justify-center shrink-0",
+                              ativo
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "border-input",
+                            )}
+                          >
+                            {ativo && <Check className="size-3" />}
+                          </span>
+                          <span className="min-w-0">
+                            <span
+                              className={cn(
+                                "block text-sm truncate",
+                                ativo && "font-medium",
+                              )}
+                            >
+                              {o.nome}
+                            </span>
+                            {o.sigla && (
+                              <span className="block text-[11px] text-muted-foreground truncate">
+                                {o.sigla}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                {secretariasVisiveis.length > 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {secretariasVisiveis.length} secretaria
+                    {secretariasVisiveis.length === 1 ? "" : "s"} selecionada
+                    {secretariasVisiveis.length === 1 ? "" : "s"}.
+                  </p>
+                )}
+              </>
             )}
           </div>
 
