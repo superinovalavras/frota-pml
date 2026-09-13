@@ -157,8 +157,17 @@ export function AgendamentoForm({
 
   const solicitante = buscarUsuario(solicitanteId) ?? usuarioAtual;
   const veiculosVisiveis = useMemo(
-    () => filtrarVeiculosVisiveis(veiculos, solicitante),
-    [veiculos, solicitante],
+    () =>
+      filtrarVeiculosVisiveis(veiculos, solicitante).filter(
+        // Não oferece carros em manutenção ou indisponíveis para NOVAS reservas.
+        // Exceção: mantém o carro já vinculado a esta reserva (edição), senão o
+        // form limparia a seleção ao editar uma reserva de um carro que ficou
+        // indisponível depois.
+        (v) =>
+          (v.status !== "manutencao" && v.status !== "indisponivel") ||
+          v.id === agendamento?.veiculoId,
+      ),
+    [veiculos, solicitante, agendamento?.veiculoId],
   );
   const veiculo = veiculos.find((v) => v.id === veiculoId);
 

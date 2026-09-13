@@ -31,7 +31,8 @@ import { cn } from "@/lib/utils";
 import { RecortadorFoto } from "@/components/recortador-foto";
 import { ManutencaoForm } from "./manutencao-form";
 import { buscarManutencaoAtiva } from "@/lib/data/manutencoes";
-import type { Manutencao, Veiculo } from "@/lib/mock/types";
+import { corStatusVeiculo, rotuloStatusVeiculo } from "@/lib/formatters";
+import type { Manutencao, StatusVeiculo, Veiculo } from "@/lib/mock/types";
 
 /** Normaliza para busca: sem acentos, minúsculo. */
 function normalizarBusca(s: string): string {
@@ -76,6 +77,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const [nome, setNome] = useState("");
   const [placa, setPlaca] = useState("");
   const [lugares, setLugares] = useState("5");
+  const [status, setStatus] = useState<StatusVeiculo>("disponivel");
   const [secretariasVisiveis, setSecretariasVisiveis] = useState<string[]>([]);
   const [filtroOrgao, setFiltroOrgao] = useState("");
   const [observacoes, setObservacoes] = useState("");
@@ -107,6 +109,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setNome(nomeCompleto || veiculo.modelo);
       setPlaca(veiculo.placa);
       setLugares(String(veiculo.lugares ?? 5));
+      setStatus(veiculo.status);
       setSecretariasVisiveis(veiculo.secretariasVisiveis ?? []);
       setFiltroOrgao("");
       setObservacoes(veiculo.observacoes ?? "");
@@ -115,6 +118,7 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setNome("");
       setPlaca("");
       setLugares("5");
+      setStatus("disponivel");
       setSecretariasVisiveis([]);
       setFiltroOrgao("");
       setObservacoes("");
@@ -210,6 +214,11 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
     base.marca = "";
     base.placa = placaLimpa;
     base.lugares = Math.min(60, Math.max(1, Math.round(Number(lugares) || 5)));
+    // Status manual só entre Disponível/Indisponível. "Em uso" (automático) e
+    // "Em manutenção" (fluxo próprio) não são sobrescritos por aqui.
+    if (status === "disponivel" || status === "indisponivel") {
+      base.status = status;
+    }
     // Compartilhamento: nunca inclui a própria dona; só ids de órgãos válidos.
     base.secretariasVisiveis = secretariasVisiveis.filter(
       (id) => id !== base.secretariaId && orgaos.some((o) => o.id === id),
@@ -346,6 +355,61 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               />
             </div>
           </div>
+
+          {/* Status (só na edição) */}
+          {modo === "editar" && (
+            <div className="space-y-2">
+              <Label>Status</Label>
+              {status === "em_uso" || status === "manutencao" ? (
+                <div className="flex items-center gap-2 rounded-md border p-2.5 text-sm">
+                  <span
+                    className={cn(
+                      "size-2.5 rounded-full shrink-0",
+                      corStatusVeiculo(status),
+                    )}
+                  />
+                  <span className="font-medium">
+                    {rotuloStatusVeiculo(status)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {status === "manutencao"
+                      ? "— use o botão Manutenção para alterar"
+                      : "— viagem em andamento (automático)"}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {(["disponivel", "indisponivel"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      disabled={!podeEditar}
+                      onClick={() => setStatus(s)}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                        status === s
+                          ? "border-primary bg-primary/10 font-medium text-primary"
+                          : "border-input hover:bg-muted",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "size-2.5 rounded-full",
+                          corStatusVeiculo(s),
+                        )}
+                      />
+                      {rotuloStatusVeiculo(s)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {status === "indisponivel" && (
+                <p className="text-[11px] text-muted-foreground">
+                  Veículos indisponíveis não aparecem para novas reservas.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Observações */}
           <div className="space-y-2">
