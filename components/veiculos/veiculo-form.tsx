@@ -63,11 +63,6 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   // abrir a Manutenção dos veículos da própria secretaria.
   const podeEditar = usuario.perfil === "master";
 
-  // Secretaria dona do veículo (sempre vê). "Também visível para" lista as
-  // outras secretarias que o Master pode marcar para compartilhar.
-  const secretariaDonaId =
-    modo === "editar" && veiculo ? veiculo.secretariaId : secretaria.id;
-  const outrasSecretarias = orgaos.filter((o) => o.id !== secretariaDonaId);
   function toggleSecretariaVisivel(id: string) {
     setSecretariasVisiveis((atual) =>
       atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id],
@@ -78,12 +73,20 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
   const [placa, setPlaca] = useState("");
   const [lugares, setLugares] = useState("5");
   const [status, setStatus] = useState<StatusVeiculo>("disponivel");
+  const [secretariaDono, setSecretariaDono] = useState<string>("");
+  const [filtroDono, setFiltroDono] = useState("");
   const [secretariasVisiveis, setSecretariasVisiveis] = useState<string[]>([]);
   const [filtroOrgao, setFiltroOrgao] = useState("");
   const [observacoes, setObservacoes] = useState("");
 
-  // Filtro da busca de secretarias — DEPOIS do estado `filtroOrgao` (senão dá
-  // "cannot access before initialization" e derruba a tela de veículos).
+  // Cálculos SEMPRE depois dos estados acima (senão dá "cannot access before
+  // initialization" e derruba a tela de veículos).
+  const outrasSecretarias = orgaos.filter((o) => o.id !== secretariaDono);
+  const donoFiltrado = orgaos.filter((o) => {
+    const termo = normalizarBusca(filtroDono.trim());
+    if (!termo) return true;
+    return normalizarBusca(`${o.nome} ${o.sigla}`).includes(termo);
+  });
   const secretariasFiltradas = outrasSecretarias.filter((o) => {
     const termo = normalizarBusca(filtroOrgao.trim());
     if (!termo) return true;
@@ -110,6 +113,8 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setPlaca(veiculo.placa);
       setLugares(String(veiculo.lugares ?? 5));
       setStatus(veiculo.status);
+      setSecretariaDono(veiculo.secretariaId);
+      setFiltroDono("");
       setSecretariasVisiveis(veiculo.secretariasVisiveis ?? []);
       setFiltroOrgao("");
       setObservacoes(veiculo.observacoes ?? "");
@@ -119,6 +124,8 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
       setPlaca("");
       setLugares("5");
       setStatus("disponivel");
+      setSecretariaDono(secretaria.id);
+      setFiltroDono("");
       setSecretariasVisiveis([]);
       setFiltroOrgao("");
       setObservacoes("");
@@ -219,6 +226,12 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
     if (status === "disponivel" || status === "indisponivel") {
       base.status = status;
     }
+    // Órgão dono escolhido (fallback: secretaria do master). Deve vir ANTES do
+    // filtro de compartilhamento (que exclui a dona).
+    base.secretariaId =
+      secretariaDono && orgaos.some((o) => o.id === secretariaDono)
+        ? secretariaDono
+        : secretaria.id;
     // Compartilhamento: nunca inclui a própria dona; só ids de órgãos válidos.
     base.secretariasVisiveis = secretariasVisiveis.filter(
       (id) => id !== base.secretariaId && orgaos.some((o) => o.id === id),
@@ -422,6 +435,73 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               rows={3}
               disabled={!podeEditar}
             />
+          </div>
+
+          {/* Órgão dono */}
+          <div className="space-y-2">
+            <Label>Órgão dono (secretaria)</Label>
+            <p className="text-xs text-muted-foreground">
+              A qual secretaria o veículo pertence. Ela sempre vê e reserva.
+            </p>
+            <div className="relative">
+              <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                value={filtroDono}
+                onChange={(e) => setFiltroDono(e.target.value)}
+                disabled={!podeEditar}
+                placeholder="Buscar secretaria pelo nome…"
+                className="pl-8"
+              />
+            </div>
+            <div className="max-h-56 overflow-y-auto rounded-md border divide-y">
+              {donoFiltrado.length === 0 ? (
+                <p className="px-3 py-3 text-sm text-muted-foreground">
+                  Nenhuma secretaria encontrada para “{filtroDono.trim()}”.
+                </p>
+              ) : (
+                donoFiltrado.map((o) => {
+                  const sel = secretariaDono === o.id;
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      disabled={!podeEditar}
+                      onClick={() => setSecretariaDono(o.id)}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                        sel ? "bg-primary/5" : "hover:bg-muted/60",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "size-4 rounded-full border flex items-center justify-center shrink-0",
+                          sel ? "border-primary" : "border-input",
+                        )}
+                      >
+                        {sel && (
+                          <span className="size-2 rounded-full bg-primary" />
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span
+                          className={cn(
+                            "block text-sm truncate",
+                            sel && "font-medium",
+                          )}
+                        >
+                          {o.nome}
+                        </span>
+                        {o.sigla && (
+                          <span className="block text-[11px] text-muted-foreground truncate">
+                            {o.sigla}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Compartilhamento entre secretarias */}
