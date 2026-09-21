@@ -6,6 +6,8 @@ import { ConfirmacaoProvider } from "@/components/confirmacao-provider";
 import { GuardaRota } from "@/components/guarda-rota";
 import { GateCarregando } from "@/components/gate-carregando";
 import { Notificacoes } from "@/components/notificacoes";
+import { ComunicadosProvider } from "@/lib/store/comunicados-context";
+import { ComunicadoModal } from "@/components/comunicados/comunicado-modal";
 
 export default function DashboardLayout({
   children,
@@ -17,6 +19,7 @@ export default function DashboardLayout({
       <AgendamentosProvider>
         <ConfirmacaoProvider>
           <SidebarMobileProvider>
+           <ComunicadosProvider>
             <GateCarregando>
               <div className="flex h-screen w-screen overflow-hidden">
                 <Sidebar />
@@ -28,7 +31,9 @@ export default function DashboardLayout({
                 </div>
               </div>
               <Notificacoes />
+              <ComunicadoModal />
             </GateCarregando>
+           </ComunicadosProvider>
           </SidebarMobileProvider>
         </ConfirmacaoProvider>
       </AgendamentosProvider>

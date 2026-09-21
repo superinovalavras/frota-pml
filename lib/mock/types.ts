@@ -83,6 +83,39 @@ export interface Usuario {
   authUserId?: string | null;
 }
 
+export type NivelComunicado = "informativo" | "importante" | "urgente";
+export type PublicoComunicado = "todos" | "secretarias";
+
+/** Comunicado geral (aviso que abre num modal ao entrar no site). */
+export interface Comunicado {
+  id: string;
+  titulo: string;
+  /** Markdown leve: **negrito** e quebras de linha. */
+  mensagem: string;
+  nivel: NivelComunicado;
+  publicoAlvo: PublicoComunicado;
+  /** Ids de secretarias-alvo quando publicoAlvo === "secretarias". */
+  secretarias: string[];
+  /** Exige "Li e estou ciente" para dispensar. */
+  exigeCiencia: boolean;
+  /** ISO — começa a aparecer a partir daqui. */
+  inicioEm: string;
+  /** ISO — some depois disto. */
+  fimEm: string;
+  ativo: boolean;
+  criadoPor: string | null;
+  criadoEm: string;
+}
+
+/** Registro por pessoa: dispensa e/ou ciência de um comunicado. */
+export interface ComunicadoVisto {
+  comunicadoId: string;
+  profileId: string;
+  dispensado: boolean;
+  cienteEm?: string;
+  vistoEm: string;
+}
+
 export interface Veiculo {
   id: string;
   placa: string;

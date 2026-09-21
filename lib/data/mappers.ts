@@ -5,6 +5,10 @@
 import type {
   Agendamento,
   CategoriaCNH,
+  Comunicado,
+  ComunicadoVisto,
+  NivelComunicado,
+  PublicoComunicado,
   EmailEventoTipo,
   EmailOutbox,
   EmailStatus,
@@ -312,5 +316,56 @@ export function agendamentoToRow(
     foto_retorno_url: orNull(a.fotoRetornoUrl),
     obs_retorno: orNull(a.obsRetorno),
     criado_em: a.criadoEm,
+  };
+}
+
+// ---------------------------------------------------------------------
+// Comunicados
+// ---------------------------------------------------------------------
+export function comunicadoFromRow(
+  r: Tables["comunicados"]["Row"],
+): Comunicado {
+  return {
+    id: r.id,
+    titulo: r.titulo,
+    mensagem: r.mensagem,
+    nivel: r.nivel as NivelComunicado,
+    publicoAlvo: r.publico_alvo as PublicoComunicado,
+    secretarias: Array.isArray(r.secretarias) ? r.secretarias : [],
+    exigeCiencia: r.exige_ciencia,
+    inicioEm: r.inicio_em,
+    fimEm: r.fim_em,
+    ativo: r.ativo,
+    criadoPor: r.criado_por,
+    criadoEm: r.criado_em,
+  };
+}
+export function comunicadoToRow(
+  c: Comunicado,
+): Tables["comunicados"]["Insert"] {
+  return {
+    id: c.id,
+    titulo: c.titulo,
+    mensagem: c.mensagem,
+    nivel: c.nivel,
+    publico_alvo: c.publicoAlvo,
+    secretarias: c.secretarias,
+    exige_ciencia: c.exigeCiencia,
+    inicio_em: c.inicioEm,
+    fim_em: c.fimEm,
+    ativo: c.ativo,
+    criado_por: c.criadoPor,
+    criado_em: c.criadoEm,
+  };
+}
+export function comunicadoVistoFromRow(
+  r: Tables["comunicados_vistos"]["Row"],
+): ComunicadoVisto {
+  return {
+    comunicadoId: r.comunicado_id,
+    profileId: r.profile_id,
+    dispensado: r.dispensado,
+    cienteEm: r.ciente_em ?? undefined,
+    vistoEm: r.visto_em,
   };
 }

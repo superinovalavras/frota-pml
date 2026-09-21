@@ -6,6 +6,7 @@ import {
   IdCard,
   BarChart3,
   Shield,
+  Megaphone,
 } from "lucide-react";
 import type { Perfil } from "@/lib/mock/types";
 
@@ -40,6 +41,12 @@ export const navItems: NavItem[] = [
     label: "Motoristas",
     icon: IdCard,
     perfis: ["master", "gestor"],
+  },
+  {
+    href: "/avisos",
+    label: "Avisos",
+    icon: Megaphone,
+    perfis: ["master", "gestor", "servidor", "motorista"],
   },
   {
     href: "/relatorios",

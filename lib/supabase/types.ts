@@ -160,6 +160,29 @@ type NotificacaoRow = {
   criado_em: string;
 };
 
+type ComunicadoRow = {
+  id: string;
+  titulo: string;
+  mensagem: string;
+  nivel: string;
+  publico_alvo: string;
+  secretarias: string[];
+  exige_ciencia: boolean;
+  inicio_em: string;
+  fim_em: string;
+  ativo: boolean;
+  criado_por: string | null;
+  criado_em: string;
+};
+
+type ComunicadoVistoRow = {
+  comunicado_id: string;
+  profile_id: string;
+  dispensado: boolean;
+  ciente_em: string | null;
+  visto_em: string;
+};
+
 type AgendamentoRow = {
   id: string;
   veiculo_id: string;
@@ -206,6 +229,8 @@ export type Database = {
       manutencoes: TableShape<ManutencaoRow>;
       email_outbox: TableShape<EmailOutboxRow>;
       notificacoes: TableShape<NotificacaoRow>;
+      comunicados: TableShape<ComunicadoRow>;
+      comunicados_vistos: TableShape<ComunicadoVistoRow>;
     };
     Views: {
       // View de leitura de usuários com CPF/MASP mascarados (migration 0010).

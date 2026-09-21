@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Layers, Users, Building2, Palette, ShieldAlert } from "lucide-react";
+import { Layers, Users, Building2, Palette, ShieldAlert, Megaphone } from "lucide-react";
 import {
   Tabs,
   TabsContent,
@@ -14,6 +14,7 @@ import { HierarquiaTab } from "./hierarquia-tab";
 import { UsuariosTab } from "./usuarios-tab";
 import { OrgaosTab } from "./orgaos-tab";
 import { MarcaTab } from "./marca-tab";
+import { ComunicadosTab } from "./comunicados-tab";
 
 export function AdminScreen() {
   const { usuario } = usePerfil();
@@ -62,6 +63,11 @@ export function AdminScreen() {
             <Building2 className="size-4" />
             Órgãos
           </TabsTrigger>
+          <TabsTrigger value="comunicados" className="gap-2 px-3 sm:px-4 py-2">
+            <Megaphone className="size-4" />
+            <span className="hidden sm:inline">Comunicados</span>
+            <span className="sm:hidden">Avisos</span>
+          </TabsTrigger>
           <TabsTrigger value="marca" className="gap-2 px-3 sm:px-4 py-2">
             <Palette className="size-4" />
             Marca
@@ -76,6 +82,9 @@ export function AdminScreen() {
         </TabsContent>
         <TabsContent value="orgaos">
           <OrgaosTab />
+        </TabsContent>
+        <TabsContent value="comunicados">
+          <ComunicadosTab />
         </TabsContent>
         <TabsContent value="marca">
           <MarcaTab />
