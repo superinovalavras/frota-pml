@@ -116,6 +116,18 @@ export interface ComunicadoVisto {
   vistoEm: string;
 }
 
+/** Ocorrência / defeito relatado num veículo. */
+export interface RelatoVeiculo {
+  id: string;
+  veiculoId: string;
+  autorId: string | null;
+  descricao: string;
+  resolvido: boolean;
+  resolvidoPor: string | null;
+  resolvidoEm?: string;
+  criadoEm: string;
+}
+
 export interface Veiculo {
   id: string;
   placa: string;

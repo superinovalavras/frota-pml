@@ -30,6 +30,7 @@ import { usePerfil } from "@/lib/perfil-context";
 import { cn } from "@/lib/utils";
 import { RecortadorFoto } from "@/components/recortador-foto";
 import { ManutencaoForm } from "./manutencao-form";
+import { DefeitosVeiculo } from "./defeitos-veiculo";
 import { buscarManutencaoAtiva } from "@/lib/data/manutencoes";
 import { corStatusVeiculo, rotuloStatusVeiculo } from "@/lib/formatters";
 import type { Manutencao, StatusVeiculo, Veiculo } from "@/lib/mock/types";
@@ -586,6 +587,14 @@ export function VeiculoForm({ veiculo, modo, onClose }: Props) {
               </>
             )}
           </div>
+
+          {/* Ocorrências / Defeitos — ao abrir um carro (qualquer usuário relata). */}
+          {modo === "editar" && veiculo && (
+            <>
+              <div className="border-t pt-3" />
+              <DefeitosVeiculo veiculoId={veiculo.id} />
+            </>
+          )}
 
           {erro && (
             <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">

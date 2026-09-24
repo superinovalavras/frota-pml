@@ -17,6 +17,7 @@ import type {
   NivelAcesso,
   Passageiro,
   Perfil,
+  RelatoVeiculo,
   Secretaria,
   StatusAgendamento,
   StatusVeiculo,
@@ -367,5 +368,23 @@ export function comunicadoVistoFromRow(
     dispensado: r.dispensado,
     cienteEm: r.ciente_em ?? undefined,
     vistoEm: r.visto_em,
+  };
+}
+
+// ---------------------------------------------------------------------
+// Relatos de veículo (ocorrências / defeitos)
+// ---------------------------------------------------------------------
+export function relatoFromRow(
+  r: Tables["relatos_veiculo"]["Row"],
+): RelatoVeiculo {
+  return {
+    id: r.id,
+    veiculoId: r.veiculo_id,
+    autorId: r.autor_id,
+    descricao: r.descricao,
+    resolvido: r.resolvido,
+    resolvidoPor: r.resolvido_por,
+    resolvidoEm: r.resolvido_em ?? undefined,
+    criadoEm: r.criado_em,
   };
 }

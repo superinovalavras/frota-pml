@@ -175,6 +175,17 @@ type ComunicadoRow = {
   criado_em: string;
 };
 
+type RelatoVeiculoRow = {
+  id: string;
+  veiculo_id: string;
+  autor_id: string | null;
+  descricao: string;
+  resolvido: boolean;
+  resolvido_por: string | null;
+  resolvido_em: string | null;
+  criado_em: string;
+};
+
 type ComunicadoVistoRow = {
   comunicado_id: string;
   profile_id: string;
@@ -231,6 +242,7 @@ export type Database = {
       notificacoes: TableShape<NotificacaoRow>;
       comunicados: TableShape<ComunicadoRow>;
       comunicados_vistos: TableShape<ComunicadoVistoRow>;
+      relatos_veiculo: TableShape<RelatoVeiculoRow>;
     };
     Views: {
       // View de leitura de usuários com CPF/MASP mascarados (migration 0010).
