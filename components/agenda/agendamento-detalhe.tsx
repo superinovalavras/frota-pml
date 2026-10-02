@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "./status-badge";
+import { ComprovanteViagem } from "./comprovante-viagem";
 import {
   formatHora,
   formatDataExtenso,
@@ -39,7 +40,11 @@ import {
   type TipoCheck,
 } from "@/components/agendamentos/check-in-out-dialog";
 import { useConfirmacao } from "@/components/confirmacao-provider";
-import { NOTIFICACOES_EMAIL_ATIVAS, REGISTRO_PAINEL_ATIVO } from "@/lib/flags";
+import {
+  NOTIFICACOES_EMAIL_ATIVAS,
+  REGISTRO_PAINEL_ATIVO,
+  PORTARIA_ATIVA,
+} from "@/lib/flags";
 import { notificarReservaConfirmada } from "@/lib/notificar-eventos";
 import {
   Car,
@@ -63,6 +68,7 @@ import {
   Camera,
   Copy,
   Check,
+  BadgeCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -91,6 +97,7 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
   const { confirmar } = useConfirmacao();
   const [tipoCheck, setTipoCheck] = useState<TipoCheck | null>(null);
   const [processandoCancel, setProcessandoCancel] = useState(false);
+  const [comprovanteAberto, setComprovanteAberto] = useState(false);
 
   async function aoCancelar() {
     if (!agendamento) return;
@@ -141,6 +148,14 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
     agendamento.status === "pendente" || agendamento.status === "confirmado";
   const podeCancelarPropria =
     usuarioAtual.id === agendamento.solicitanteId && cancelavel;
+
+  // Comprovante para mostrar na portaria: existe quando a viagem já foi aberta
+  // (em andamento = saída) ou encerrada (concluída = retorno).
+  // Dormente atrás da flag PORTARIA_ATIVA (em desenvolvimento).
+  const temComprovante =
+    PORTARIA_ATIVA &&
+    (agendamento.status === "em_andamento" ||
+      agendamento.status === "concluido");
 
   // Solicitante e motorista podem mover o próprio fluxo, INCLUSIVE confirmar a
   // própria viagem. A RLS + o trigger guard_agendamento_status garantem a regra
@@ -381,6 +396,16 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
           <>
             <Separator />
             <div className="flex flex-wrap gap-2">
+              {temComprovante && (
+                <Button
+                  size="sm"
+                  onClick={() => setComprovanteAberto(true)}
+                  className="bg-emerald-600 text-white hover:bg-emerald-700"
+                >
+                  <BadgeCheck className="size-4" />
+                  Mostrar na portaria
+                </Button>
+              )}
               {acoes.map((s) => {
                 const Icon = ICONES_STATUS[s];
                 const variant =
@@ -489,6 +514,13 @@ export function AgendamentoDetalhe({ agendamento, onClose, onEditar }: Props) {
         setTipoCheck(null);
         onClose();
       }}
+    />
+    <ComprovanteViagem
+      agendamento={comprovanteAberto ? agendamento : null}
+      veiculo={veiculo}
+      motorista={motorista ?? null}
+      solicitante={solicitante}
+      onClose={() => setComprovanteAberto(false)}
     />
     </>
   );

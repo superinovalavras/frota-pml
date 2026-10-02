@@ -44,3 +44,14 @@ export const NOTIFICACOES_EMAIL_ATIVAS = false;
  *      para a nossa rota (ver app/auth/confirm/route.ts).
  */
 export const RECUPERACAO_SENHA_EMAIL_ATIVA = true;
+
+/**
+ * Fluxo de portaria: comprovante de saída/retorno para a pessoa "mostrar na
+ * portaria" (aposenta a anotação manual do porteiro). Ver docs/PORTARIA-FLUXO.md.
+ *
+ * DESLIGADO por enquanto — em desenvolvimento. Com `false`:
+ *   - o botão "Mostrar na portaria" não aparece na tela da reserva;
+ *   - a tela de comprovante fica inacessível (código pronto, mas dormente).
+ * Ligar depois de decidir: KM obrigatório? foto opcional? papel do porteiro?
+ */
+export const PORTARIA_ATIVA = false;
