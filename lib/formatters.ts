@@ -100,13 +100,14 @@ export function corStatusVeiculo(s: StatusVeiculo): string {
 }
 
 export function rotuloPerfil(
-  p: "master" | "gestor" | "servidor" | "motorista",
+  p: "master" | "gestor" | "servidor" | "motorista" | "portaria",
 ): string {
   const m = {
     master: "Master",
     gestor: "Gestor",
     servidor: "Servidor",
     motorista: "Motorista",
+    portaria: "Portaria",
   } as const;
   return m[p];
 }
@@ -116,6 +117,7 @@ export function rotuloNivelAcesso(n: NivelAcesso): string {
     master: "Master (acesso total)",
     gestor: "Gestor (sua secretaria)",
     servidor: "Servidor (sua superintendência)",
+    portaria: "Portaria (monitoramento)",
   };
   return m[n];
 }

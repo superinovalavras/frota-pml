@@ -1,7 +1,12 @@
-export type Perfil = "master" | "gestor" | "servidor" | "motorista";
+export type Perfil =
+  | "master"
+  | "gestor"
+  | "servidor"
+  | "motorista"
+  | "portaria";
 
 /** Nível de acesso técnico no sistema (independente de hierarquia organizacional) */
-export type NivelAcesso = "master" | "gestor" | "servidor";
+export type NivelAcesso = "master" | "gestor" | "servidor" | "portaria";
 
 export type StatusVeiculo =
   | "disponivel"

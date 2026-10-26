@@ -7,6 +7,7 @@ import {
   BarChart3,
   Shield,
   Megaphone,
+  DoorOpen,
 } from "lucide-react";
 import type { Perfil } from "@/lib/mock/types";
 
@@ -18,6 +19,13 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
+  {
+    href: "/portaria",
+    label: "Portaria",
+    icon: DoorOpen,
+    // Observador: só a portaria (e o Master, para acompanhar/testar).
+    perfis: ["master", "portaria"],
+  },
   {
     href: "/agenda",
     label: "Agenda",
@@ -64,4 +72,12 @@ export const navItems: NavItem[] = [
 
 export function navItemsParaPerfil(perfil: Perfil): NavItem[] {
   return navItems.filter((item) => item.perfis.includes(perfil));
+}
+
+/**
+ * Rota inicial ("casa") de cada perfil. A portaria é observador e não tem
+ * acesso à Agenda — então cai no painel dela. Os demais vão para a Agenda.
+ */
+export function rotaInicialParaPerfil(perfil: Perfil): string {
+  return perfil === "portaria" ? "/portaria" : "/agenda";
 }

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { usePerfil } from "@/lib/perfil-context";
-import { navItems } from "@/lib/navigation";
+import { navItems, rotaInicialParaPerfil } from "@/lib/navigation";
 
 /**
  * Bloqueia rotas que não são permitidas para o perfil atual.
@@ -25,13 +25,23 @@ export function GuardaRota({ children }: { children: ReactNode }) {
 
   // Rotas fora do nav (ex.: /perfil) ficam liberadas.
   const permitido = !item || item.perfis.includes(usuario.perfil);
+  const casa = rotaInicialParaPerfil(usuario.perfil);
+
+  // Quando o bloqueio é só o "pouso" na landing genérica (/agenda) de um perfil
+  // cuja casa é outra (ex.: portaria), redireciona na hora, sem o card de aviso.
+  const souRedirecionadoDaLanding = pathname === "/agenda" && casa !== "/agenda";
 
   useEffect(() => {
     if (!permitido) {
-      const t = setTimeout(() => router.replace("/agenda"), 1200);
+      const t = setTimeout(
+        () => router.replace(casa),
+        souRedirecionadoDaLanding ? 0 : 1200,
+      );
       return () => clearTimeout(t);
     }
-  }, [permitido, router]);
+  }, [permitido, router, casa, souRedirecionadoDaLanding]);
+
+  if (!permitido && souRedirecionadoDaLanding) return null;
 
   if (!permitido) {
     return (
@@ -43,8 +53,7 @@ export function GuardaRota({ children }: { children: ReactNode }) {
               <p className="font-medium">Acesso restrito</p>
               <p className="text-sm text-muted-foreground">
                 Esta área não está disponível para o perfil{" "}
-                <strong>{usuario.perfil}</strong>. Redirecionando para a
-                Agenda…
+                <strong>{usuario.perfil}</strong>. Redirecionando…
               </p>
             </div>
           </CardContent>

@@ -12,7 +12,8 @@ import type { Usuario, Veiculo } from "@/lib/mock/types";
  *   vê e pode reservar o veículo (sem sub-filtro por superintendência).
  */
 export function veiculoVisivelPara(v: Veiculo, u: Usuario): boolean {
-  if (u.perfil === "master") return true;
+  // Master e Portaria enxergam a frota inteira (portaria = monitoramento global).
+  if (u.perfil === "master" || u.perfil === "portaria") return true;
 
   // Dona: regra por perfil/superintendência.
   if (v.secretariaId === u.secretariaId) {

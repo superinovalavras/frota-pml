@@ -11,7 +11,7 @@ import { criarSupabaseServer, criarSupabaseAdmin } from "@/lib/supabase/server";
 export interface Ator {
   profileId: string;
   authUserId: string;
-  perfil: "master" | "gestor" | "servidor" | "motorista";
+  perfil: "master" | "gestor" | "servidor" | "motorista" | "portaria";
   hierarquia: number;
   secretariaId: string;
   superintendenciaId: string | null;

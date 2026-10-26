@@ -8,6 +8,7 @@ import type { Funcao } from "./types";
  */
 export const FUNCAO_MASTER_ID = "f-master";
 export const FUNCAO_MOTORISTA_ID = "f-motorista";
+export const FUNCAO_PORTARIA_ID = "f-portaria";
 
 export const funcoes: Funcao[] = [
   {
@@ -55,5 +56,12 @@ export const funcoes: Funcao[] = [
     nivelAcesso: "servidor",
     sistema: true,
     ehMotorista: true,
+  },
+  {
+    id: FUNCAO_PORTARIA_ID,
+    nome: "Portaria",
+    hierarquia: 100,
+    nivelAcesso: "portaria",
+    sistema: true,
   },
 ];

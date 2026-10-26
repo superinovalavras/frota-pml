@@ -8,8 +8,13 @@
  * com `Record<string, unknown>`, exigido pelos tipos do supabase-js.
  */
 
-export type PerfilDb = "master" | "gestor" | "servidor" | "motorista";
-export type NivelAcessoDb = "master" | "gestor" | "servidor";
+export type PerfilDb =
+  | "master"
+  | "gestor"
+  | "servidor"
+  | "motorista"
+  | "portaria";
+export type NivelAcessoDb = "master" | "gestor" | "servidor" | "portaria";
 export type StatusVeiculoDb =
   | "disponivel"
   | "em_uso"
